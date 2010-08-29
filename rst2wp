@@ -1,0 +1,851 @@
+#!/usr/bin/env python
+
+'''Script to translate rst into HTML and post it to a Wordpress server.
+
+This script also has some nice features:
+
+- image:: directives upload images using the WordPress API and point
+  at the uploaded URL. If the image is non-local, it will be downloaded using
+  urllib and deleted after it's been uploaded.
+- categories are read from bibliographic fields at the top of the file.
+- an id: field is saved at the top of the file, as well as in a dotrc
+  file in ~/.config (or as specified by xdg), and if an id is known
+  for a post, that post is edited (instead of a new one being created)
+
+Getting started
+===============
+
+Just run the script once to create ~/.config/rst2wp/wordpressrc.
+Account settings and configuration stuff goes in there.
+
+Usage
+=====
+
+Run rst2wp with the name of a post as its argument. The post is just
+an ordinary RST file, except that the (normally optional)
+bibliographic fields at the top of the file are required in order to
+provide a title to the post.
+
+Here's a sample post::
+
+    :title: This is a brand new test!
+
+    This is just a test, of course. Here's an image:
+
+    |my_image|
+
+    I'd like to close with a quote:
+
+        Four score and seven years ago..
+
+
+    .. |my_image| image:: http://travelogue.betacantrips.com/wp-content/uploads/2009/09/tumblr_kqlgm7DjDq1qz59y9o1_500.gif
+       :target: http://travelogue.betacantrips.com/
+
+Once you run rst2wp on this file, the file will be modified. Particularly,
+you'll see::
+
+    :id: 362
+
+in the bibliographic fields at the top, and in the `image::` directive, you'll see::
+
+    :saved_as: http://travelogue.betacantrips.com/wp-content/uploads/2009/09/tumblr_kqlgm7DjDq1qz59y9o1_500.gif
+
+In the future, this blog post will be altered instead of new ones
+being uploaded, and the uploaded image won't be re-uploaded.
+
+You might find this annoying because you might have to re-load the
+file in your text editor, so this information is also saved in
+~/.config/rst2wp. You can choose one or the other by editing
+config.data_storage.
+
+Options
+=======
+
+- ``-n``/``--preview`` will open a browser (using $BROWSER) to let you
+  "preview" the HTML you're generating.
+
+- ``--list-tags`` and ``--list-categories`` might be helpful, but
+  WordPress will only show those that contain posts.
+
+Known Links
+===========
+
+Over time you may find that you refer to some sites over and over
+again. ReST has a perfectly effective technique for this: defining external
+link targets. If you define a known_links file with the format::
+
+    [http://www.example.com/]
+    link = example link
+
+Then you can use it freely in your posts::
+
+    This is a link to `example link`_. Isn't ReST lovely?
+'''
+# FIXME: robust against missing configuration keys
+# FIXME: prompt for a good filename/extension for unknown weird files
+# FIXME: could use fields['date'] for publish date
+
+# Configuration:
+# - config.data_storage = one of "file", "dotrc", or "both".
+#   "dotrc" means to store URLs of uploaded images in ~/.config/rst2wp/images
+#   and ids of posts in ~/.config/rst2wp/posts. "file" means to store that
+#   information in the .rst file itself. "both" stores in both places,
+#   and generally trusts the file over the dotrc files.
+#
+# N.B.: if config.data_storage = "dotrc", the filename of the post is
+# assumed to be unique across all blog posts. This means if you re-use
+# a filename, you could potentially edit an existing blog-post. To
+# help guard against this, FIXME: need to check if title is the same
+# as what's in the dotrc, and if different, confirm
+
+import re
+import getopt
+from xdg import BaseDirectory
+import ConfigParser
+import sys
+import os.path
+import tempfile, subprocess, time
+from docutils import core, io, nodes, utils
+from docutils.parsers.rst import roles, directives, languages
+import docutils.parsers.rst.directives.images
+from docutils.readers import standalone
+import docutils.writers.html4css1
+import docutils.transforms
+#import yaml
+import urllib
+
+sys.path.insert(0, os.path.join(os.path.abspath(os.path.dirname(__file__)), "lib"))
+
+TEMP_DIRECTORY = '/tmp'
+
+import wordpresslib
+
+class UsageError(Exception):
+    @classmethod
+    def usage_message(cls):
+        return \
+'''Usage: {name} filename
+Converts an RST file into HTML and posts it to Wordpress.
+See the source for more details.'''.format(name=os.path.basename(sys.argv[0]))
+
+    def error_message(self):
+        return "{error}\nSee '{path} --help'.".format(error=self.args[0],
+                                                      path=self.args[1])
+
+class MyImageDirective(directives.images.Image):
+    option_spec = directives.images.Image.option_spec.copy()
+    option_spec.update({'saved_as': directives.unchanged,
+                        'title': directives.unchanged})
+
+    def run(self):
+        uri = directives.uri(self.arguments[0])
+        print 'Handling image directive:', uri, self.options
+        document = self.state_machine.document
+        app = document.settings.application
+
+        if 'saved_as' in self.options or app.has_info(document, 'image '+uri, 'new uri', location=IMAGES_LOCATION):
+            document.settings.used_images[uri] = True
+            if 'saved_as' in self.options:
+                real_uri = self.options['saved_as']
+            else:
+                real_uri = app.get_info(document, 'image ' + uri, 'new uri', location=IMAGES_LOCATION)
+            print "Using saved location for image:", real_uri
+
+            self.arguments[0] = real_uri
+            result_nodes = directives.images.Image.run(self)
+
+        else:
+            # Call the super here to update options, etc.
+            result_nodes = directives.images.Image.run(self)
+
+            # Use a pending to do stuff here -- download after all the
+            # checking is done
+            pending = nodes.pending(DownloadImageTransform, rawsource=self.block_text)
+            pending.details.update(self.options)
+            document.note_pending(pending)
+
+            # This could be any inline element, but we use the image we'd
+            # normally have to look coherent.
+            last_node = result_nodes[-1]
+            if isinstance(last_node, nodes.reference):
+                last_node = last_node.children[0]
+
+            # Embed the pending in the image node
+            last_node += pending
+
+        return result_nodes
+
+directives.register_directive('image', MyImageDirective)
+
+class MyTranslator(docutils.writers.html4css1.HTMLTranslator):
+    def visit_image(self, node):
+        docutils.writers.html4css1.HTMLTranslator.visit_image(self, node)
+        image = self.body[-1]
+        # Default title to alt text
+        title = node.attributes.get('title', node.attributes.get('alt', None))
+
+        if title:
+            # Hackishly insert the image title into the image tag
+            self.body[-1] = image.replace('/>', 'title="%s" />'%self.attval(title))
+
+class DownloadImageTransform(docutils.transforms.Transform):
+    default_priority = 100
+    def apply(self, **kwargs):
+        if self.document.settings.application.preview:
+            print "Not downloading image because we're previewing document"
+            if self.startnode:
+                self.startnode.replace_self([])
+
+            return
+
+        print "replacing image with a downloaded verison"
+        contents = self.build_downloaded_node()
+
+        if self.startnode.parent:
+            self.startnode.parent.replace_self(contents)
+
+    def build_downloaded_node(self):
+        # FIXME: disabling for now
+        #return nodes.image(uri=self.startnode.details['uri'])
+
+        filename = uri = self.startnode.details['uri']
+
+        app = self.document.settings.application
+
+        self.upload_image(uri)
+
+        new_uri = app.get_info(self.document, 'image ' + uri, 'new uri', location=IMAGES_LOCATION)
+        self.document.settings.used_images[uri] = True
+
+        details = self.startnode.details.copy()
+        details['uri'] = new_uri
+        image = nodes.image(**details)
+        return image
+
+
+    def upload_image(self, uri):
+        # FIXME: this might not work on non-Unix -- but who cares?
+        target_filename = os.path.split(uri)[1]
+        if '?' in target_filename:
+            target_filename = target_filename[:target_filename.index('?')]
+        if '.' not in target_filename:
+            target_filename = raw_input("Image specified by %s doesn't have a filename.\nWhat would you like this image to be named?\n> "%(uri,))
+        #print "returned:", filename, headers
+
+        filename, headers = urllib.urlretrieve(uri, os.path.join(TEMP_DIRECTORY, target_filename))
+        wp = self.document.settings.wordpress_instance
+
+        print 'uploading file', uri, filename
+        new_uri = wp.upload_file(filename, overwrite=True)
+
+        if filename.startswith(TEMP_DIRECTORY):
+            # FIXME?
+            os.unlink(filename)
+
+        app = self.document.settings.application
+        app.save_info(self.document, 'image '+ uri, 'new uri', new_uri, IMAGES_LOCATION, image=uri)
+
+class BibliographicTransform(docutils.transforms.Transform):
+    '''Parses the crap out of the bibliographic fields in the document
+    and sticks them in document.settings.bibliographic_fields.'''
+    default_priority = 98
+    def __init__(self, *args, **kwargs):
+        docutils.transforms.Transform.__init__(self, *args, **kwargs)
+
+    def apply(self, **kwargs):
+        header = self.document[0]
+        if isinstance(header, nodes.field_list):
+            fields = self.get_header_as_dict(header)
+        else:
+            fields = {}
+        self.document.settings.bibliographic_fields = fields
+
+    def get_header_as_dict(self, header):
+        fields = {}
+        for field in header.children:
+            field_name, field_body = field.children
+
+            # field_name is a node with a Text child
+            assert len(field_name.children) == 1, "don't know how to handle"
+            assert isinstance(field_name.children[0], nodes.Text)
+            key = field_name.children[0].astext()
+
+            # field_body is a node with either a bulleted_list child, or
+            # a single Text child, or..?
+            if len(field_body.children) == 0:
+                fields[key] = None
+                continue
+
+            assert len(field_body.children) == 1, "don't know how to handle"
+            data = field_body.children[0]
+            if isinstance(data, nodes.bullet_list):
+                value = [node.astext() for node in data.children]
+            elif isinstance(data, nodes.Text):
+                value = data.astext()
+            elif isinstance(data, nodes.paragraph):
+                value = data.children[0].astext()
+            else:
+                raise TypeError, "don't know how to handle a %s in the header %s"%(
+                    data.__class__, key)
+            fields[key] = value
+
+        return fields
+
+class ValidityCheckerTransform(docutils.transforms.Transform):
+    default_priority = 99
+    def apply(self):
+        fields = self.document.settings.bibliographic_fields
+        app = self.document.settings.application
+
+        def _no_field(msg, msg2=''):
+            if msg2: msg = msg+msg2
+            raise TypeError, msg
+
+        if 'title' not in fields:
+            _no_field("title missing", """
+- Make sure you have a bibliographic field list at the top of your file.
+- Make sure that a title field is included.""")
+
+        if fields['title'] == '':
+            _no_field("title empty", """
+- Please set a title, because otherwise rst2wp breaks horribly.""")
+
+        if 'category' in fields:
+            fields['categories'] = fields.pop('category')
+
+        if not fields.get('categories') and \
+                not app.config.has_option('config', 'default_category'):
+            _no_field("No categories supplied", """
+WordPress requires at least one category.
+
+If you don't want to categorize this post, use the "Uncategorized" category.
+
+Set config.default_category to do this automatically.
+
+:categories: Uncategorized
+""")
+
+        categories = fields.get('categories') or fields.get('category')
+        if categories == None:
+            fields['categories'] = categories = [app.config.get('config', 'default_category')]
+
+        wp = self.document.settings.wordpress_instance
+        for cat in categories:
+            self.check_existing_category(wp, cat)
+
+        if 'tag' in fields:
+            fields['tags'] = fields.pop('tag')
+
+        if 'tags' in fields:
+            for tag in fields['tags']:
+                self.check_existing_tag(wp, tag)
+
+    def check_existing_tag(self, wp, tag):
+        if ',' in tag:
+            raise ValueError, """Cannot use tags with ',' in the name.
+
+WordPress will break tags at commas. If you really want a tag with a comma, add it via the web interface."""
+        if not wp.has_tag(tag):
+            tag = self.read_tag(tag)
+
+    def check_existing_category(self, wp, cat):
+        if not wp.has_category(cat):
+            cat = self.read_category(cat)
+
+    def read_base(self, name):
+        fmt = {'name': repr(str(name))}
+        slug = raw_input("Slug for {name} [auto-generate]: ".format(**fmt))
+        description = raw_input("Description for {name} [none]: ".format(**fmt))
+        return {'slug': slug, 'description': description, 'name': name}
+
+    def read_tag(self, tag):
+        fmt = {'tag': repr(str(tag))}
+        if ',' in tag:
+            raise ValueError, """Cannot create tag with ',' in the name.
+
+If you really want a tag with a comma in the name, create it via the web interface first."""
+
+        print "Post has non-existent tag {tag}. Ctrl-C to cancel.".format(**fmt)
+        print "rst2wp can create the tag automatically, but can't set description or slug via XML-RPC API. If you want to edit these things, log in to the blog!"
+        raw_input("Confirm creation? [yes]")
+
+    def read_category(self, cat):
+        fmt = {'category': repr(str(cat))}
+        print "Post has non-existent category {category}. Ctrl-C to cancel.".format(**fmt)
+        raw_input("Confirm? [yes]")
+
+        data = self.read_base(cat)
+        parent_id = raw_input("Parent id for {category} [none]: ".format(**fmt))
+
+        c = wordpresslib.WordPressCategory(parent_id=parent_id, **data)
+        wp.new_category(c)
+
+
+class WordPressReader(standalone.Reader):
+    def __init__(self, preview=False):
+        standalone.Reader.__init__(self)
+        self.preview = preview
+
+    def get_transforms(self):
+        transforms = standalone.Reader.get_transforms(self)
+        if self.preview: return transforms
+
+        transforms.insert(0, BibliographicTransform)
+        transforms.insert(1, ValidityCheckerTransform)
+        return transforms
+
+
+class Application(object):
+    def __init__(self):
+        super(Application, self).__init__()
+        self._config = None
+
+    @property
+    def config(self):
+        if self._config: return self._config
+        return self._load_config()
+
+    def _read_configs_into(self, config, filepath='wordpressrc', config_name='config'):
+        for dir in BaseDirectory.load_config_paths('rst2wp'):
+            filename = os.path.join(dir, filepath)
+            if not os.path.exists(filename): continue
+            print "loading {0} from".format(config_name), filename
+            with file(filename) as f:
+                config.readfp(f)
+            print 'config loaded'
+
+    def _load_config(self):
+        config = ConfigParser.SafeConfigParser()
+        self.VERBOSE = False
+
+        self._read_configs_into(config)
+
+        DEFAULT_WORDPRESS_URL = 'http://wordpress.example.com/wordpress/xmlrpc.php'
+
+        if not config.has_section('account'):
+            config.add_section('account')
+            # Fill in some default values
+            config.set('account', 'url', DEFAULT_WORDPRESS_URL)
+            config.set('account', 'username', 'joe_user')
+            config.set('account', 'password', 'trustNo1')
+
+            config.add_section('config')
+            config.set('config', 'data_storage', 'both')
+            config.set('config', 'publish_default', 'no')
+
+            path = os.path.join(BaseDirectory.save_config_path('rst2wp'), 'wordpressrc')
+            print 'Need configuration! Edit %s'%(path,)
+            with file(path, 'wb') as fp:
+                config.write(fp)
+            sys.exit()
+
+        if config.get('account', 'url') == DEFAULT_WORDPRESS_URL:
+            # Don't wipe out what they might have configured
+            print 'Still needs configuration! Edit %s'%(path,)
+            sys.exit()
+
+        self._config = config
+        return config
+
+    def search_configs(self, configfile, section, key, default=None):
+        '''Looks through all configs named configfile for (section, key)'''
+        for dir in BaseDirectory.load_config_paths('rst2wp'):
+            filename = os.path.join(dir, configfile)
+            if not os.path.exists(filename): continue
+
+            config = ConfigParser.SafeConfigParser()
+            with file(filename) as f:
+                config.readfp(f)
+            if not config.has_section(section): continue
+
+            if not config.has_option(section, key): continue
+
+            return config.get(section, key)
+
+        return default
+
+
+class Rst2Wp(Application):
+    def _known_link_stanza(self):
+        known_links = ConfigParser.SafeConfigParser()
+        self._read_configs_into(known_links, 'known_links', 'known links')
+
+        links = []
+        for sectname in known_links.sections():
+            links.append('.. _`{name}`: {link}'.format(link=sectname,
+                                                       name=known_links.get(sectname, 'link')))
+
+        return '\n\n'+'\n'.join(links)
+
+    def __init__(self):
+        super(Rst2Wp, self).__init__()
+        self.preview = False
+        self.list_tags = False
+        self.list_categories = False
+        self.publish = None
+
+    @property
+    def data_storage(self):
+        return self.config.get('config', 'data_storage')
+
+    def parse_args(self, args):
+        filename = None
+        long_args = ['preview', 'list-tags', 'list-categories', 'publish', 'no-publish']
+        opts, leftover = getopt.gnu_getopt(args[1:], 'n', long_args)
+
+        for opt, val in opts:
+            if opt in ['-n', '--preview']:
+                self.preview = True
+            elif opt in ['--list-tags']:
+                self.list_tags = True
+            elif opt in ['--list-categories']:
+                self.list_categories = True
+            elif opt in ['--publish']:
+                self.publish = True
+            elif opt in ['--no-publish']:
+                self.publish = False
+
+        if len(leftover) > 0:
+            filename = leftover[0]
+        if filename == None:
+            raise UsageError, ("%s needs a filename."%(args[0],), args[0])
+
+        self.filename = filename
+
+    def prompt(self, msg):
+        return raw_input(msg)
+
+    def save_info(self, document, section, key, value, location=None,
+                  # FIXME: fugly hack
+                  image=None):
+        "Usage: app.save_info(document, 'post ' + filename, 'id', '365')"
+        location = location or POSTS_LOCATION
+        data_storage = self.data_storage
+        if data_storage in ['both', 'dotrc']:
+            config = ConfigParser.SafeConfigParser()
+            filename = location(self)
+            if os.path.exists(filename):
+                with file(filename) as f:
+                    config.readfp(f)
+
+            if not config.has_section(section):
+                config.add_section(section)
+
+            config.set(section, key, value)
+            with file(filename, 'wb') as fp:
+                config.write(fp)
+
+        if data_storage in ['both', 'file']:
+            if location == POSTS_LOCATION:
+                self.replace_field(document, key, value)
+            elif location == IMAGES_LOCATION:
+                if image:
+                    self.replace_image(document, image, value)
+                    # But since that won't hit the disk until after the post,
+                    # let's stick it in document.settings too
+                    if not hasattr(document.settings, 'image_uris'):
+                        document.settings.image_uris = {}
+                    document.settings.image_uris[key] = value
+            else:
+                raise ValueError, "couldn't save data in {location}".format(location=location)
+
+    def get_info(self, document, section, key, location=None):
+        location = location or POSTS_LOCATION
+        if self.data_storage in ['both', 'file']:
+            if location == POSTS_LOCATION:
+                #print("Looking up {key} and finding {value}".format(key=key, value=document.settings.bibliographic_fields[key]))
+                return document.settings.bibliographic_fields[key]
+            elif location == IMAGES_LOCATION:
+                # FIXME: as below
+                # Ideally this has been about to be written to a file
+                if hasattr(document.settings, 'image_uris'):
+                    return document.settings.image_uris[key]
+                if self.data_storage == 'file':
+                    raise ValueError, "uh oh.. don't know what the image URI should be for {uri}".format(uri=key)
+
+        return self.search_configs(location(self), section, key)
+
+    def has_info(self, document, section, key, location=None):
+        location = location or POSTS_LOCATION
+        if self.data_storage in ['both', 'file']:
+            if location == POSTS_LOCATION:
+                return (key in document.settings.bibliographic_fields)
+            elif location == IMAGES_LOCATION:
+                # FIXME: I don't have a better idea here
+                # If you're looking for a URL for an image in the file itself,
+                # hopefully it's been saved as saved_as: new_url, but what if
+                # the image shows up multiple times? I dunno.
+                pass
+
+        class NO_DEFAULT:
+            pass
+
+        return self.search_configs(location(self), section, key, NO_DEFAULT) is not NO_DEFAULT
+
+
+    def replace_field(self, document, key, value):
+        keystring = ':{key}:'.format(key=key)
+        new_line = '{keystring} {value}'.format(keystring=keystring, value=value.encode('utf8'))
+
+        lines = self.text.split('\n')
+        for i in range(len(lines)):
+            if lines[i].strip() == '':
+                # Didn't have that field
+                lines.insert(i, new_line)
+                break
+            if lines[i].startswith(keystring):
+                lines[i] = new_line
+                break
+
+        self.text = '\n'.join(lines)
+
+    def get_indent(self, s):
+        r = re.compile('^\s*')
+        m = r.search(s)
+        return m.end()
+
+    def replace_image(self, document, key, value):
+        r = re.compile('image::\s+({uri})'.format(uri = re.escape(key)))
+        lines = self.text.split('\n')
+
+        for i in range(len(lines)):
+            if r.search(lines[i]):
+                n = self.get_indent(lines[i])
+                lines.insert(i+1, ((n+3)*' ')+':saved_as: {value}'.format(value=value))
+
+        self.text = '\n'.join(lines)
+
+    def should_save_file(self):
+        data_storage = self.config.get('config', 'data_storage')
+        save_to_file = data_storage in ['both', 'file']
+        return self.text != file(self.filename).read() and save_to_file
+
+    def posts_location(self):
+        return os.path.join(BaseDirectory.save_config_path('rst2wp', 'published'),
+                            'posts')
+
+    def images_location(self):
+        return os.path.join(BaseDirectory.save_config_path('rst2wp', 'published'),
+                            'images')
+
+    def replace_newlines(self, txt):
+        '''Eliminate newlines from txt.
+
+        Wordpress's post API tries to format text, turns newlines into
+        <br/>s, etc. Since we're giving it already-formatted HTML,
+        there's no need for that behavior. Instead we turn newlines
+        into spaces, which is safe because HTML mandates that multiple
+        whitespaces are identical to one whitespace.
+
+        The only time this doesn't work is when handling <pre>
+        elements. Thus, we handle those specially.'''
+        start = 0                          # start eliminating from here
+        pre = re.compile("<pre( [^>]*)?>") # actual parsing? fuck that noise!
+        end_pre = re.compile("</pre>")     # whew, no </pre class="...">
+
+        # Loop invariant: start is the index at which text has already
+        # been processed. This means it either ends a </pre> or 0.
+        #
+        # <pre>hi there</pre>abcde fgh ijklm<pre>foo bar baz</pre>nopqrstu
+        # start -------------|
+        # m.start() ------------------------|
+        while True:
+            m = pre.search(txt, start)
+            if not m: break
+
+            txt = (txt[:start] +     # already replaced
+                   txt[start:m.start()].replace('\n', ' ') +  # replace till next <pre>
+                   txt[m.start():])    # <pre> and afterwards
+
+            # Indexes could change between start and m.start(), since
+            # that's where we replace text. (They don't, but whatever.)
+            # So to advance start, we search starting from start (instead
+            # of m.start()).
+            m = end_pre.search(txt, start)
+
+            if not m: break    # couldn't keep the invariant
+            start = m.end()
+
+        # No <pre> blocks between start and end of string, but still
+        # have to replace newlines there
+        txt = txt[:start] + txt[start:].replace('\n', ' ')
+        return txt
+
+    def create_client(self, url, username, password):
+        wp = wordpresslib.WordPressClient(url, username, password)
+        config = self.config
+
+        if not config.has_option('account', 'blog_id') or config.get('account', 'blog_id') == '':
+            blogs = list(wp.get_users_blogs())
+            blog = blogs[0]
+            print "Arbitrarily picking first blog: %s at %s"%(blog.name, blog.url)
+            wp.selectBlog(blog.id)
+        else:
+            blog_id = config.get_int('account', 'blog_id')
+            print "Using blog id %s from config" % (blog_id,)
+            wp.selectBlog(blog_id)
+
+        return wp
+
+    def run(self, *args, **kwargs):
+        if not args: args = sys.argv
+        self.parse_args(args)
+        config = self.config
+
+        url = config.get('account', 'url')
+        username = config.get('account', 'username')
+        password = config.get('account', 'password')
+        if config.has_option('account', 'verbose'):
+            self.VERBOSE = config.get('account', 'verbose')
+
+        print "Connecting to WP server at", url
+        wp = None
+        if not self.preview:
+            self.wp = wp = self.create_client(url, username, password)
+
+        if self.VERBOSE:
+            options = wp.get_options()
+            print "Talking to %s version %s"%(options['software_name'], options['software_version'])
+
+        if not self.preview:
+            if self.list_tags:
+                return self.run_list_tags()
+            elif self.list_categories:
+                return self.run_list_categories()
+
+        with file(self.filename) as f:
+            self.text = text = f.read()
+
+        # self.text is the version we eventually save;
+        # text is the version we render
+        text = text+self._known_link_stanza()
+        reader = WordPressReader(self.preview)
+
+        used_images = {}
+        writer = docutils.writers.html4css1.Writer()
+        writer.translator_class = MyTranslator
+
+        output = core.publish_parts(source=text, writer=writer,
+                                    reader=reader,
+                                    settings_overrides={
+                'wordpress_instance' : wp,
+                'application': self,
+                'used_images': used_images,
+                # FIXME: probably a nicer way to do this
+                'filename': self.filename,
+                })
+        #print yaml.dump(output, default_flow_style=False)
+        body = output['body']
+
+        if self.preview:
+            return self.run_preview(output)
+
+
+        fields = reader.document.settings.bibliographic_fields
+
+        categories = [wordpresslib.WordPressCategory(name=cat) for cat in fields['categories']]
+        tags = []
+        for tag in fields.get('tags', []):
+            if wp.has_tag(tag):
+                tags.append(wp.get_tag(tag))
+            else:
+                tags.append(wordpresslib.WordPressTag(name=tag))
+        # WP will replace \n with <br/>, which isn't what RST is
+        # designed for. We short-circuit this by replacing all newlines
+        # with spaces, which ought to be safe.
+        body = self.replace_newlines(body)
+
+        new_post_data = {
+            'title' : unicode(fields['title']),
+            'categories': categories,
+            'tags': tags,
+            'description': body,
+            }
+
+        # Publish priority:
+        # 1. --publish/--no-publish
+        # 2. :publish: yes
+        # 3. config publish_default
+        # 4. default to false
+        publish = None
+        if publish == None: publish = self.publish
+        if publish == None:
+            publish = fields.get('publish', None)
+            if publish == 'yes': publish = True
+        if publish == None and config.has_option('config', 'publish_default'):
+            publish = config.getboolean('config', 'publish_default')
+        if publish == None: publish = False
+
+        if self.has_info(reader.document, "post " + self.filename, 'id'):
+            post_id = self.get_info(reader.document, "post " + self.filename, 'id')
+            post_id = unicode(post_id)
+            post = wp.get_post(post_id)
+
+            post.__dict__.update(new_post_data)
+
+            if fields.get('type') == 'page':
+                wp.edit_page(post_id, post, publish)
+            else:
+                wp.edit_post(post_id, post, publish)
+
+        else:
+            # FIXME: fields['date']
+            user = wp.get_user_info()
+            new_post_data['user'] = user.id
+            post = wordpresslib.WordPressPost(**new_post_data)
+
+            if fields.get('type') == 'page':
+                post_id = wp.new_page(post, publish)
+            else:
+                post_id = wp.new_post(post, publish)
+            self.save_info(reader.document, "post " + self.filename,
+                           'id', str(post_id))
+
+        self.save_info(reader.document, "post " + self.filename,
+                       'title', fields['title'])
+
+        for image_uri in used_images:
+            self.save_info(reader.document, "image " + image_uri,
+                           'used in ' + str(post_id), fields['title'], location=IMAGES_LOCATION)
+
+        if self.should_save_file():
+            print "Saving file with new data"
+            file(self.filename, 'w').write(self.text)
+
+    def run_preview(self, output):
+        body = output['body']
+        fp = tempfile.NamedTemporaryFile(suffix='-rst2wp-preview.html',
+                                         delete=False)
+        fp.write(body.encode('utf8'))
+        fp.close()
+        browser = os.getenv('BROWSER') or 'sensible-browser'
+        subprocess.call([browser, fp.name])
+        # FIXME: better way to know when it gets loaded?
+        time.sleep(5)
+
+        os.unlink(fp.name)
+
+    def run_list_tags(self):
+        tags = self.wp.get_tags()
+        for tag in tags:
+            print '{name} (id {id}): {count} posts'.format(**tag.__dict__)
+
+    def run_list_categories(self):
+        categories = self.wp.get_categories()
+        for category in tags:
+            print '{name} (id {id})'.format(**tag.__dict__)
+
+POSTS_LOCATION = Rst2Wp.posts_location
+IMAGES_LOCATION = Rst2Wp.images_location
+
+if __name__ == '__main__':
+    if '--help' in sys.argv:
+        print UsageError.usage_message()
+        sys.exit(1)
+
+    try:
+        Rst2Wp().run()
+    except UsageError, u:
+        print u.error_message()
+        sys.exit(1)
