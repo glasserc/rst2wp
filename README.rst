@@ -19,10 +19,7 @@ Features
   non-local, it will be automatically downloaded using urllib.
 - Tags and categories are read from bibliographic fields at the top of
   the file. Many
-- Complies with the `XDG Base Directory
-  <http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html>`_
-  spec by default. This means configuration by default goes in
-  ``$HOME/.config/rst2wp/``.
+- Configuration by default goes in ``$HOME/.config/rst2wp/``.
 
 Getting started
 ===============
