@@ -100,7 +100,7 @@ Then you can use it freely in your posts::
 # as what's in the dotrc, and if different, confirm
 
 import re
-import getopt
+import argparse
 from xdg import BaseDirectory
 import ConfigParser
 import sys
@@ -490,28 +490,24 @@ class Rst2Wp(Application):
         return self.config.get('config', 'data_storage')
 
     def parse_args(self, args):
-        filename = None
-        long_args = ['preview', 'list-tags', 'list-categories', 'publish', 'no-publish']
-        opts, leftover = getopt.gnu_getopt(args[1:], 'n', long_args)
+        parser = argparse.ArgumentParser(description=
+                                         'Convert ReStructuredText to HTML and upload to a Wordpress instance.')
+        parser.add_argument('filename', type=str,
+                            help='the ReStructuredText source file')
+        parser.add_argument('-n', '--preview', action='store_true',
+                            help="don't upload; render to HTML and display in $BROWSER")
+        parser.add_argument('--list-tags', action='store_true',
+                            help="list available tags for this Wordpress instance")
+        parser.add_argument('--list-categories', action='store_true',
+                            help="list available categories for this Wordpress instance")
+        group = parser.add_argument_group()
+        group.add_argument('--publish', action='store_const', const=True,
+                           help="mark this post as published")
+        group.add_argument('--no-publish', dest='publish', action='store_const', const=False,
+                           help="do not mark this post as published")
 
-        for opt, val in opts:
-            if opt in ['-n', '--preview']:
-                self.preview = True
-            elif opt in ['--list-tags']:
-                self.list_tags = True
-            elif opt in ['--list-categories']:
-                self.list_categories = True
-            elif opt in ['--publish']:
-                self.publish = True
-            elif opt in ['--no-publish']:
-                self.publish = False
-
-        if len(leftover) > 0:
-            filename = leftover[0]
-        if filename == None:
-            raise UsageError, ("%s needs a filename."%(args[0],), args[0])
-
-        self.filename = filename
+        options = parser.parse_args(args)
+        self.__dict__.update(options.__dict__)
 
     def prompt(self, msg):
         return raw_input(msg)
@@ -840,10 +836,6 @@ POSTS_LOCATION = Rst2Wp.posts_location
 IMAGES_LOCATION = Rst2Wp.images_location
 
 if __name__ == '__main__':
-    if '--help' in sys.argv:
-        print UsageError.usage_message()
-        sys.exit(1)
-
     try:
         Rst2Wp().run()
     except UsageError, u:
