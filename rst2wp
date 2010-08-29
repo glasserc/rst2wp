@@ -492,22 +492,23 @@ class Rst2Wp(Application):
     def parse_args(self, args):
         parser = argparse.ArgumentParser(description=
                                          'Convert ReStructuredText to HTML and upload to a Wordpress instance.')
-        parser.add_argument('filename', type=str,
-                            help='the ReStructuredText source file')
         parser.add_argument('-n', '--preview', action='store_true',
                             help="don't upload; render to HTML and display in $BROWSER")
-        parser.add_argument('--list-tags', action='store_true',
+        group = parser.add_mutually_exclusive_group(required=True)
+        group.add_argument('filename', type=str, nargs='?',
+                            help='the ReStructuredText source file (optional if querying tags/categories)')
+        group.add_argument('--list-tags', action='store_true',
                             help="list available tags for this Wordpress instance")
-        parser.add_argument('--list-categories', action='store_true',
+        group.add_argument('--list-categories', action='store_true',
                             help="list available categories for this Wordpress instance")
-        group = parser.add_argument_group()
+
+        group = parser.add_mutually_exclusive_group()
         group.add_argument('--publish', action='store_const', const=True,
                            help="mark this post as published")
         group.add_argument('--no-publish', dest='publish', action='store_const', const=False,
                            help="do not mark this post as published")
 
-        options = parser.parse_args(args)
-        self.__dict__.update(options.__dict__)
+        options = parser.parse_args(args, self)
 
     def prompt(self, msg):
         return raw_input(msg)
@@ -685,7 +686,7 @@ class Rst2Wp(Application):
         return wp
 
     def run(self, *args, **kwargs):
-        if not args: args = sys.argv
+        if not args: args = sys.argv[1:]
         self.parse_args(args)
         config = self.config
 
