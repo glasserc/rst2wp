@@ -80,8 +80,50 @@ Options
 - ``--list-tags`` and ``--list-categories`` might be helpful, but
   WordPress will only show those that contain posts.
 
+Config
+======
+
+The configuration file (by default ``$HOME/.config/rst2wp/wordpressrc``) has several parameters:
+
+- config.data_storage = one of "file", "dotrc", or "both" (default is "file").
+  "dotrc" means to store URLs of uploaded images in ~/.config/rst2wp/images
+  and ids of posts in ~/.config/rst2wp/posts. "file" means to store that
+  information in the .rst file itself. "both" stores in both places,
+  and generally trusts the file over the dotrc files.
+
+  "file" is recommended, but in case you don't like rst2wp editing
+  your files, "dotrc" is provided. Use "both" if you are indecisive.
+
+  N.B.: if config.data_storage = "dotrc", the filename of the post is
+  assumed to be unique across all blog posts. This means if you re-use
+  a filename, you could potentially edit an existing blog-post. To
+  help guard against this, FIXME: need to check if title is the same
+  as what's in the dotrc, and if different, confirm.
+
+- config.publish_default = "yes" or "no" (default is yes). See
+  "Publishing", below.
+
+- config.save_uploads = "yes" or "no" (default no). If true, all
+  uploaded files are saved to an "uploads/" directory in the same
+  directory as the post.
+
+- config.scale_images = [Not implemented yet.]
+
+Publishing
+----------
+
+Wordpress supports having posts that aren't yet published. There are many reasons you might do this -- for one, you might want to make sure rst2wp didn't make a hash of your post. Thus, rst2wp can mark a post "published" or not. This is controlled in several ways.
+
+1. If either of the ``--publish``\ /\ ``--no-publish`` arguments are present, this has priority (``--publish`` marks the post published; ``--no-publish`` marks the post as "unpublished").
+
+2. Otherwise, if the post has a bibliographic field called ``:publish:`` and it is set to "yes", the post is marked published.
+
+3. Otherwise, if the configuration parameter ``publish_default`` is set, the value of the parameter is used: "yes" marks the post published, "no" marks it as unpublished.
+
+4. Otherwise, the post is marked as unpublished.
+
 Known Links
-===========
+-----------
 
 Over time you may find that you refer to some sites over and over
 again. ReST has a perfectly effective technique for this: defining external

@@ -8,19 +8,6 @@ See the README for more details.
 # FIXME: prompt for a good filename/extension for unknown weird files
 # FIXME: could use fields['date'] for publish date
 
-# Configuration:
-# - config.data_storage = one of "file", "dotrc", or "both".
-#   "dotrc" means to store URLs of uploaded images in ~/.config/rst2wp/images
-#   and ids of posts in ~/.config/rst2wp/posts. "file" means to store that
-#   information in the .rst file itself. "both" stores in both places,
-#   and generally trusts the file over the dotrc files.
-#
-# N.B.: if config.data_storage = "dotrc", the filename of the post is
-# assumed to be unique across all blog posts. This means if you re-use
-# a filename, you could potentially edit an existing blog-post. To
-# help guard against this, FIXME: need to check if title is the same
-# as what's in the dotrc, and if different, confirm
-
 import re
 import argparse
 from xdg import BaseDirectory
@@ -353,8 +340,10 @@ class Application(object):
             config.set('account', 'password', 'trustNo1')
 
             config.add_section('config')
-            config.set('config', 'data_storage', 'both')
-            config.set('config', 'publish_default', 'no')
+            config.set('config', 'data_storage', 'file')
+            config.set('config', 'publish_default', 'yes')
+            config.set('config', 'save_uploads', 'no')
+            config.set('config', 'scale_images', 'no')
 
             path = os.path.join(BaseDirectory.save_config_path('rst2wp'), 'wordpressrc')
             print 'Need configuration! Edit %s'%(path,)
