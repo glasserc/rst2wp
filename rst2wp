@@ -368,7 +368,7 @@ If you really want a tag with a comma in the name, create it via the web interfa
 
         print "Post has non-existent tag {tag}. Ctrl-C to cancel.".format(**fmt)
         print "rst2wp can create the tag automatically, but can't set description or slug via XML-RPC API. If you want to edit these things, log in to the blog!"
-        raw_input("Confirm creation? [yes]")
+        raw_input("Confirm creation? [yes] ")
 
     def read_category(self, cat):
         fmt = {'category': repr(str(cat))}
