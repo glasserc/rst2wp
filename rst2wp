@@ -306,6 +306,7 @@ class WordPressReader(standalone.Reader):
 
 
 class Application(object):
+    config_name = 'rst2wp'
     def __init__(self):
         super(Application, self).__init__()
         self._config = None
@@ -316,7 +317,7 @@ class Application(object):
         return self._load_config()
 
     def _read_configs_into(self, config, filepath='wordpressrc', config_name='config'):
-        for dir in BaseDirectory.load_config_paths('rst2wp'):
+        for dir in BaseDirectory.load_config_paths(self.config_name):
             filename = os.path.join(dir, filepath)
             if not os.path.exists(filename): continue
             print "loading {0} from".format(config_name), filename
@@ -361,7 +362,7 @@ class Application(object):
 
     def search_configs(self, configfile, section, key, default=None):
         '''Looks through all configs named configfile for (section, key)'''
-        for dir in BaseDirectory.load_config_paths('rst2wp'):
+        for dir in BaseDirectory.load_config_paths(self.config_name):
             filename = os.path.join(dir, configfile)
             if not os.path.exists(filename): continue
 
@@ -405,6 +406,8 @@ class Rst2Wp(Application):
                                          'Convert ReStructuredText to HTML and upload to a Wordpress instance.')
         parser.add_argument('-n', '--preview', action='store_true',
                             help="don't upload; render to HTML and display in $BROWSER")
+        parser.add_argument('-c', '--config', dest='alt_config', nargs='?', type=str,
+                            help='use alternate config (see README for details)')
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument('filename', type=str, nargs='?',
                             help='the ReStructuredText source file (optional if querying tags/categories)')
@@ -420,6 +423,7 @@ class Rst2Wp(Application):
                            help="do not mark this post as published")
 
         options = parser.parse_args(args, self)
+        if isinstance(self.alt_config, str): self.config_name = self.alt_config
 
     def prompt(self, msg):
         return raw_input(msg)
