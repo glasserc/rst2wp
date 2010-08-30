@@ -74,6 +74,12 @@ Options
 - ``-n``/``--preview`` will open a browser (using $BROWSER) to let you
   "preview" the HTML you're generating.
 
+- ``-c``/``--config NAME`` may be of use to you if you maintain
+  multiple blogs with rst2wp. At present it lets you use another name
+  to look for configs (so you can search ``~/.config/NAME``
+  instead of ``~/.config/rst2wp``), but in the future it may be more
+  useful somehow.
+
 - ``--list-tags`` and ``--list-categories`` might be helpful, but
   WordPress will only show those that contain posts.
 
