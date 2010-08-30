@@ -250,6 +250,7 @@ Set config.default_category to do this automatically.
 :categories: Uncategorized
 """)
 
+        print "Checking validity of categories/tags"
         categories = fields.get('categories') or fields.get('category')
         if categories == None:
             fields['categories'] = categories = [app.config.get('config', 'default_category')]
@@ -264,6 +265,7 @@ Set config.default_category to do this automatically.
         if 'tags' in fields:
             for tag in fields['tags']:
                 self.check_existing_tag(wp, tag)
+        print "Tags/categories: OK"
 
     def check_existing_tag(self, wp, tag):
         if ',' in tag:
