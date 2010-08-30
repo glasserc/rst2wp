@@ -134,6 +134,8 @@ class DownloadImageTransform(docutils.transforms.Transform):
 
 
     def upload_image(self, uri):
+        app = self.document.settings.application
+
         # FIXME: this might not work on non-Unix -- but who cares?
         target_filename = os.path.split(uri)[1]
         if '?' in target_filename:
@@ -142,13 +144,26 @@ class DownloadImageTransform(docutils.transforms.Transform):
             target_filename = raw_input("Image specified by %s doesn't have a filename.\nWhat would you like this image to be named?\n> "%(uri,))
         #print "returned:", filename, headers
 
-        filename, headers = urllib.urlretrieve(uri, os.path.join(TEMP_DIRECTORY, target_filename))
-        wp = self.document.settings.wordpress_instance
+        dir = TEMP_DIRECTORY
+        save_uploads = app.config.has_option('config', 'save_uploads') and \
+            app.config.getboolean('config', 'save_uploads') == True
+        if save_uploads:
+            dir = os.path.join(os.path.dirname(app.filename), 'uploads')
+            try: os.mkdir(dir)
+            except OSError, e:
+                # Probably "file exists"
+                if e.errno != 17: raise
 
+        filename = os.path.join(dir, target_filename)
+        if not os.path.exists(filename):
+            print("Downloading {0}".format(uri))
+            filename, headers = urllib.urlretrieve(uri, os.path.join(dir, target_filename))
+
+        wp = self.document.settings.wordpress_instance
         print 'uploading file', uri, filename
         new_uri = wp.upload_file(filename, overwrite=True)
 
-        if filename.startswith(TEMP_DIRECTORY):
+        if not save_uploads and filename.startswith(TEMP_DIRECTORY):
             # FIXME?
             os.unlink(filename)
 
