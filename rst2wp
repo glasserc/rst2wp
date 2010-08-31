@@ -479,6 +479,11 @@ class Rst2Wp(Application):
             else:
                 raise ValueError, "couldn't save data in {location}".format(location=location)
 
+        # Save immediately, so as to not forget the location of an uploaded image
+        if self.should_save_file():
+            print "Saving file with new data"
+            file(self.filename, 'w').write(self.text)
+
     def get_info(self, document, section, key, location=None):
         location = location or POSTS_LOCATION
         if self.data_storage in ['both', 'file']:
@@ -737,10 +742,6 @@ class Rst2Wp(Application):
         for image_uri in used_images:
             self.save_info(reader.document, "image " + image_uri,
                            'used in ' + str(post_id), fields['title'], location=IMAGES_LOCATION)
-
-        if self.should_save_file():
-            print "Saving file with new data"
-            file(self.filename, 'w').write(self.text)
 
     def run_preview(self, output):
         body = output['body']
