@@ -53,10 +53,13 @@ class MyImageDirective(directives.images.Image):
         document = self.state_machine.document
         app = document.settings.application
 
-        if 'saved_as' in self.options or app.has_info(document, 'image '+uri, 'new uri', location=IMAGES_LOCATION):
+        if 'saved_as' in self.options or app.has_info(document, 'image '+uri, 'new uri', location=IMAGES_LOCATION) \
+                or app.has_info(document, 'image '+uri, 'saved_as', location=IMAGES_LOCATION):
             document.settings.used_images[uri] = True
             if 'saved_as' in self.options:
                 real_uri = self.options['saved_as']
+            elif app.has_info(document, 'image '+uri, 'saved_as', location=IMAGES_LOCATION):
+                real_uri = app.get_info(document, 'image ' + uri, 'saved_as', location=IMAGES_LOCATION)
             else:
                 real_uri = app.get_info(document, 'image ' + uri, 'new uri', location=IMAGES_LOCATION)
             print "Using saved location for image:", real_uri
@@ -124,7 +127,7 @@ class DownloadImageTransform(docutils.transforms.Transform):
 
         self.upload_image(uri)
 
-        new_uri = app.get_info(self.document, 'image ' + uri, 'new uri', location=IMAGES_LOCATION)
+        new_uri = app.get_info(self.document, 'image ' + uri, 'saved_as', location=IMAGES_LOCATION)
         self.document.settings.used_images[uri] = True
 
         details = self.startnode.details.copy()
@@ -168,7 +171,7 @@ class DownloadImageTransform(docutils.transforms.Transform):
             os.unlink(filename)
 
         app = self.document.settings.application
-        app.save_info(self.document, 'image '+ uri, 'new uri', new_uri, IMAGES_LOCATION, image=uri)
+        app.save_info(self.document, 'image '+ uri, 'saved_as', new_uri, IMAGES_LOCATION, image=uri)
 
 class BibliographicTransform(docutils.transforms.Transform):
     '''Parses the crap out of the bibliographic fields in the document
@@ -470,7 +473,7 @@ class Rst2Wp(Application):
                 self.replace_field(document, key, value)
             elif location == IMAGES_LOCATION:
                 if image:
-                    self.replace_image(document, image, value)
+                    self.replace_image(document, image, key, value)
                     # But since that won't hit the disk until after the post,
                     # let's stick it in document.settings too
                     if not hasattr(document.settings, 'image_uris'):
@@ -539,14 +542,14 @@ class Rst2Wp(Application):
         m = r.search(s)
         return m.end()
 
-    def replace_image(self, document, key, value):
-        r = re.compile('image::\s+({uri})'.format(uri = re.escape(key)))
+    def replace_image(self, document, image, key, value):
+        r = re.compile('image::\s+({uri})'.format(uri = re.escape(image)))
         lines = self.text.split('\n')
 
         for i in range(len(lines)):
             if r.search(lines[i]):
                 n = self.get_indent(lines[i])
-                lines.insert(i+1, ((n+3)*' ')+':saved_as: {value}'.format(value=value))
+                lines.insert(i+1, ((n+3)*' ')+':{key}: {value}'.format(key=key, value=value))
 
         self.text = '\n'.join(lines)
 
