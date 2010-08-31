@@ -57,6 +57,7 @@ class MyImageDirective(directives.images.Image):
     def run(self):
         uri = directives.uri(self.arguments[0])
         print 'Handling image directive:', uri, self.options
+        self.options['orig_uri'] = uri
         document = self.state_machine.document
         app = document.settings.application
 
@@ -164,6 +165,15 @@ class ImageHandlerTransform(docutils.transforms.Transform):
     def uri(self):
         return self.startnode.details['uri']
 
+    def upload_image(self, uri, filename):
+        '''Upload ``filename`` as the replacement for ``uri`` in the document.'''
+        wp = self.document.settings.wordpress_instance
+        print 'uploading file', uri, filename
+        new_uri = wp.upload_file(filename, overwrite=True)
+
+        app = self.document.settings.application
+        app.save_info(self.document, 'image '+ uri, 'saved_as', new_uri, IMAGES_LOCATION, image=uri)
+
 class DownloadImageTransform(ImageHandlerTransform):
     default_priority = 100
     def apply(self, **kwargs):
@@ -208,16 +218,8 @@ class DownloadImageTransform(ImageHandlerTransform):
             print("Downloading {0}".format(uri))
             filename, headers = urllib.urlretrieve(uri, os.path.join(dir, target_filename))
 
-        return filename
-
-    def upload_image(self, uri, filename):
-        wp = self.document.settings.wordpress_instance
-        print 'uploading file', uri, filename
-        new_uri = wp.upload_file(filename, overwrite=True)
         self.cleanup_file(filename)
-
-        app = self.document.settings.application
-        app.save_info(self.document, 'image '+ uri, 'saved_as', new_uri, IMAGES_LOCATION, image=uri)
+        return filename
 
 class ScaleImageTransform(ImageHandlerTransform):
     '''Creates a new image by scaling another image'''
@@ -225,14 +227,15 @@ class ScaleImageTransform(ImageHandlerTransform):
 
     def apply(self):
         scale = self.startnode.details['scale']
-        dimensions = factor = None
-        try:
-            factor = float(scale)
-        except ValueError, e:
-            dimensions = scale.split('x')
 
         app = self.document.settings.application
-        uri = self.uri
+        # Use original URI, put in place by MyImageDirective
+        uri = self.startnode.details['orig_uri']
+        full_uri = self.startnode.details['uri']
+        if 'target' not in self.startnode.details:
+            app.save_info(self.document, 'image '+ uri, 'target', full_uri, IMAGES_LOCATION, image=uri)
+            self.startnode.details['target'] = full_uri
+
         target_filename = self.uri_filename(uri)
         head, ext = os.path.splitext(target_filename)
         dir = self.uploads_dir()
@@ -244,12 +247,30 @@ class ScaleImageTransform(ImageHandlerTransform):
 
         if not os.path.exists(orig_filename):
             print("Scaling image without a local source: redownloading {0} to {1}".format(uri, orig_filename))
-            pass
+            #filename, headers = urllib.urlretrieve(uri, os.path.join(dir, target_filename))
 
+        self.process_image(orig_filename, new_filename, scale=scale)
         self.cleanup_file(new_filename)
+
+        self.upload_image(uri, new_filename)
 
         if self.startnode.parent:
             self.startnode.parent.replace(self.startnode, [])
+
+    def process_image(self, orig_filename, new_filename, scale=None, rot=None):
+        image = Image.open(orig_filename)
+        if scale:
+            dimensions = factor = None
+            try:
+                factor = float(scale)
+                dimensions = image.size
+                dimensions = dimensions[0]*factor, dimensions[1]*factor
+            except ValueError, e:
+                dimensions = scale.split('x')
+                dimensions = int(dimensions[0]), int(dimensions[1])
+
+        image.thumbnail(dimensions, Image.ANTIALIAS)
+        image.save(new_filename)
 
 
 class BibliographicTransform(docutils.transforms.Transform):
