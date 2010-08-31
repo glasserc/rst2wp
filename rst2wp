@@ -23,10 +23,16 @@ import docutils.writers.html4css1
 import docutils.transforms
 #import yaml
 import urllib
+try:
+    import Image
+except ImportError:
+    print("WARNING: PIL is absent. Won't be able to automatically scale images.")
+    Image = None
 
 sys.path.insert(0, os.path.join(os.path.abspath(os.path.dirname(__file__)), "lib"))
 
 TEMP_DIRECTORY = '/tmp'
+TEMP_FILES = []
 
 import wordpresslib
 
@@ -119,12 +125,48 @@ class MyTranslator(docutils.writers.html4css1.HTMLTranslator):
             # Hackishly insert the image title into the image tag
             self.body[-1] = image.replace('/>', 'title="%s" />'%self.attval(title))
 
-class DownloadImageTransform(docutils.transforms.Transform):
+class ImageHandlerTransform(docutils.transforms.Transform):
+    @property
+    def save_uploads(self, *args, **kwargs):
+        if not hasattr(self, '_save_uploads'):
+            app = self.document.settings.application
+            self._save_uploads = app.config.has_option('config', 'save_uploads') and \
+                app.config.getboolean('config', 'save_uploads') == True
+        return self._save_uploads
+
+    def uri_filename(self, uri):
+        # FIXME: this might not work on non-Unix -- but who cares?
+        target_filename = os.path.split(uri)[1]
+        if '?' in target_filename:
+            target_filename = target_filename[:target_filename.index('?')]
+        if '.' not in target_filename:
+            target_filename = raw_input("Image specified by %s doesn't have a filename.\nWhat would you like this image to be named?\n> "%(uri,))
+
+        return target_filename
+
+    def uploads_dir(self):
+        app = self.document.settings.application
+        dir = TEMP_DIRECTORY
+        if self.save_uploads:
+            dir = os.path.join(os.path.dirname(app.filename), 'uploads')
+            try: os.mkdir(dir)
+            except OSError, e:
+                # Probably "file exists"
+                if e.errno != 17: raise
+
+        return dir
+
+    def cleanup_file(self, filename):
+        if not self.save_uploads and filename.startswith(TEMP_DIRECTORY):
+            TEMP_FILES.append(filename)
+
+    @property
+    def uri(self):
+        return self.startnode.details['uri']
+
+class DownloadImageTransform(ImageHandlerTransform):
     default_priority = 100
     def apply(self, **kwargs):
-        self.save_uploads = app.config.has_option('config', 'save_uploads') and \
-            app.config.getboolean('config', 'save_uploads') == True
-
         if self.document.settings.application.preview:
             print "Not downloading image because we're previewing document"
             if self.startnode:
@@ -141,11 +183,9 @@ class DownloadImageTransform(docutils.transforms.Transform):
     def build_downloaded_node(self):
         # FIXME: disabling for now
         #return nodes.image(uri=self.startnode.details['uri'])
-
-        filename = uri = self.startnode.details['uri']
+        uri = self.uri
 
         app = self.document.settings.application
-
         filename = self.download_image(uri)
         self.upload_image(uri, filename)
 
@@ -160,21 +200,8 @@ class DownloadImageTransform(docutils.transforms.Transform):
     def download_image(self, uri):
         app = self.document.settings.application
 
-        # FIXME: this might not work on non-Unix -- but who cares?
-        target_filename = os.path.split(uri)[1]
-        if '?' in target_filename:
-            target_filename = target_filename[:target_filename.index('?')]
-        if '.' not in target_filename:
-            target_filename = raw_input("Image specified by %s doesn't have a filename.\nWhat would you like this image to be named?\n> "%(uri,))
-        #print "returned:", filename, headers
-
-        dir = TEMP_DIRECTORY
-        if self.save_uploads:
-            dir = os.path.join(os.path.dirname(app.filename), 'uploads')
-            try: os.mkdir(dir)
-            except OSError, e:
-                # Probably "file exists"
-                if e.errno != 17: raise
+        target_filename = self.uri_filename(uri)
+        dir = self.uploads_dir()
 
         filename = os.path.join(dir, target_filename)
         if not os.path.exists(filename):
@@ -187,23 +214,43 @@ class DownloadImageTransform(docutils.transforms.Transform):
         wp = self.document.settings.wordpress_instance
         print 'uploading file', uri, filename
         new_uri = wp.upload_file(filename, overwrite=True)
-
-        if not self.save_uploads and filename.startswith(TEMP_DIRECTORY):
-            # FIXME?
-            os.unlink(filename)
+        self.cleanup_file(filename)
 
         app = self.document.settings.application
         app.save_info(self.document, 'image '+ uri, 'saved_as', new_uri, IMAGES_LOCATION, image=uri)
 
-class ScaleImageTransform(docutils.transforms.Transform):
+class ScaleImageTransform(ImageHandlerTransform):
     '''Creates a new image by scaling another image'''
     default_priority = 101
 
-    def apply(self, **kwargs):
-        print("Threatening to scale {0} with {1}".format(self.startnode, kwargs))
+    def apply(self):
+        scale = self.startnode.details['scale']
+        dimensions = factor = None
+        try:
+            factor = float(scale)
+        except ValueError, e:
+            dimensions = scale.split('x')
+
+        app = self.document.settings.application
+        uri = self.uri
+        target_filename = self.uri_filename(uri)
+        head, ext = os.path.splitext(target_filename)
+        dir = self.uploads_dir()
+        orig_filename = os.path.join(dir, target_filename)
+        new_filename = os.path.join(dir, "{head}-{scale}{ext}".format(head=head, scale=scale, ext=ext))
+
+        print("Threatening to scale {0} with {1}".format(self.startnode, self.startnode.details))
+        print("Output would go in {0}".format(new_filename))
+
+        if not os.path.exists(orig_filename):
+            print("Scaling image without a local source: redownloading {0} to {1}".format(uri, orig_filename))
+            pass
+
+        self.cleanup_file(new_filename)
 
         if self.startnode.parent:
-            self.startnode.parent.replace_self([])
+            self.startnode.parent.replace(self.startnode, [])
+
 
 class BibliographicTransform(docutils.transforms.Transform):
     '''Parses the crap out of the bibliographic fields in the document
@@ -531,7 +578,7 @@ class Rst2Wp(Application):
                 if hasattr(document.settings, 'image_uris'):
                     return document.settings.image_uris[key]
                 if self.data_storage == 'file':
-                    raise ValueError, "uh oh.. don't know what the image URI should be for {uri}".format(uri=key)
+                    raise ValueError, "uh oh.. don't know what the image URI should be for {uri}".format(uri=section)
 
         return self.search_configs(location(self), section, key)
 
@@ -810,3 +857,6 @@ if __name__ == '__main__':
     except UsageError, u:
         print u.error_message()
         sys.exit(1)
+    finally:
+        for filename in TEMP_FILES:
+            os.unlink(filename)
