@@ -179,14 +179,27 @@ class ImageHandlerTransform(docutils.transforms.Transform):
     def uri(self):
         return self.startnode.details['uri']
 
-    def upload_image(self, uri, filename):
-        '''Upload ``filename`` as the replacement for ``uri`` in the document.'''
+    def upload_image(self, uri, filename, attribute='saved_as'):
+        '''Upload ``filename`` as the replacement for ``uri`` in the document.
+
+        Save the resulting filename in the metainfo for the document, using the attribute given by ``attribute``.'''
         wp = self.document.settings.wordpress_instance
         print 'uploading file', uri, filename
         new_uri = wp.upload_file(filename, overwrite=True)
 
         app = self.document.settings.application
-        app.save_info(self.document, 'image '+ uri, 'saved_as', new_uri, IMAGES_LOCATION, image=uri)
+        app.save_info(self.document, 'image '+ uri, attribute, new_uri, IMAGES_LOCATION, image=uri)
+
+    def replace_with_new_image(self, uri, find_url_with='saved_as'):
+        app = self.document.settings.application
+        new_uri = app.get_info(self.document, 'image ' + uri, find_url_with, location=IMAGES_LOCATION)
+        self.document.settings.used_images[uri] = True
+
+        details = self.startnode.details.copy()
+        details['uri'] = new_uri
+        image = nodes.image(**details)
+        if self.startnode.parent:
+            self.startnode.parent.replace_self(image)
 
 class DownloadImageTransform(ImageHandlerTransform):
     default_priority = 100
@@ -199,10 +212,7 @@ class DownloadImageTransform(ImageHandlerTransform):
             return
 
         print "replacing image with a downloaded verison"
-        contents = self.build_downloaded_node()
-
-        if self.startnode.parent:
-            self.startnode.parent.replace_self(contents)
+        self.build_downloaded_node()
 
     def build_downloaded_node(self):
         # FIXME: disabling for now
@@ -213,13 +223,7 @@ class DownloadImageTransform(ImageHandlerTransform):
         filename = self.download_image(uri)
         self.upload_image(uri, filename)
 
-        new_uri = app.get_info(self.document, 'image ' + uri, 'saved_as', location=IMAGES_LOCATION)
-        self.document.settings.used_images[uri] = True
-
-        details = self.startnode.details.copy()
-        details['uri'] = new_uri
-        image = nodes.image(**details)
-        return image
+        self.replace_with_new_image(uri, find_url_with='saved_as')
 
     def download_image(self, uri):
         app = self.document.settings.application
@@ -243,35 +247,50 @@ class ScaleImageTransform(ImageHandlerTransform):
         scale = self.startnode.details['scale']
 
         app = self.document.settings.application
-        # Use original URI, put in place by MyImageDirective
+        # The URI of the image itself. We can't use details['uri'] because that points to the uploaded URI.
+        # Use original URI, put in place by MyImageDirective.
         uri = self.startnode.details['orig_uri']
         full_uri = self.startnode.details['uri']
-        if 'target' not in self.startnode.details:
+
+        # Details for new image node we'll create.
+        details = self.startnode.details.copy()
+
+        # Add a target to point to the full-size image we uploaded.
+        if 'orig_target' not in self.startnode.details:
+            # FIXME: is this right? Doesn't this change stuff in dotrc backends too?
             app.save_info(self.document, 'image '+ uri, 'target', full_uri, IMAGES_LOCATION, image=uri)
-            self.startnode.details['target'] = full_uri
+            details['orig_target'] = full_uri
+        details['target'] = details['orig_target']
 
-        target_filename = self.uri_filename(uri)
-        head, ext = os.path.splitext(target_filename)
-        dir = self.uploads_dir()
-        orig_filename = os.path.join(dir, target_filename)
-        new_filename = os.path.join(dir, "{head}-{scale}{ext}".format(head=head, scale=scale, ext=ext))
+        # Create some string-based representations of the image name
+        suffix = '{scale}'.format(scale=scale)
+        image_name = 'form-{suffix}'.format(suffix=suffix)
 
-        print("Threatening to scale {0} with {1}".format(self.startnode, self.startnode.details))
-        print("Output would go in {0}".format(new_filename))
+        # If this attribute already exists, we don't need to re-generate or re-upload.
+        # FIXME: make this work for dotrc too
+        #if not app.has_info(self.document, 'image ' + uri, image_name, IMAGES_LOCATION, image=uri):
+        if image_name not in self.startnode.details:
+            # Get the filename we expect to find the source, and create
+            # a similar filename for the thumbnail.
+            target_filename = self.uri_filename(uri)
+            head, ext = os.path.splitext(target_filename)
+            dir = self.uploads_dir()
+            orig_filename = os.path.join(dir, target_filename)
+            new_filename = os.path.join(dir, "{head}-{suffix}{ext}".format(head=head, suffix=suffix, ext=ext))
 
-        if not os.path.exists(orig_filename):
-            print("Scaling image without a local source: redownloading {0} to {1}".format(uri, orig_filename))
-            #filename, headers = urllib.urlretrieve(uri, os.path.join(dir, target_filename))
+            if not os.path.exists(orig_filename):
+                print("Scaling image without a local source: redownloading {0} to {1}".format(uri, orig_filename))
+                #filename, headers = urllib.urlretrieve(uri, os.path.join(dir, target_filename))
 
-        self.process_image(orig_filename, new_filename, scale=scale)
-        self.cleanup_file(new_filename)
+            self.process_image(orig_filename, new_filename, scale=scale)
+            self.cleanup_file(new_filename)
 
-        self.upload_image(uri, new_filename)
+            self.upload_image(uri, new_filename, attribute=image_name)
 
-        if self.startnode.parent:
-            self.startnode.parent.replace(self.startnode, [])
+        self.replace_with_new_image(uri, find_url_with=image_name)
 
-    def process_image(self, orig_filename, new_filename, scale=None, rot=None):
+    def process_image(self, orig_filename, new_filename, scale=None):
+        print("Scaling image from {0} to {1}".format(orig_filename, new_filename))
         image = Image.open(orig_filename)
         if scale:
             dimensions = factor = None
