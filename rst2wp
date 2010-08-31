@@ -48,8 +48,13 @@ See the source for more details.'''.format(name=os.path.basename(sys.argv[0]))
         return "{error}\nSee '{path} --help'.".format(error=self.args[0],
                                                       path=self.args[1])
 
+class WildDict(dict):
+    def __missing__(self, item):
+        if item.startswith('form-'): return directives.unchanged
+        raise KeyError
+
 class MyImageDirective(directives.images.Image):
-    option_spec = directives.images.Image.option_spec.copy()
+    option_spec = WildDict(directives.images.Image.option_spec)
     option_spec.update({'saved_as': directives.unchanged,
                         'scale': directives.unchanged,
                         'title': directives.unchanged})
