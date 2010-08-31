@@ -68,6 +68,13 @@ class MyImageDirective(directives.images.Image):
         document = self.state_machine.document
         app = document.settings.application
 
+        # FIXME: hack, hack, hack
+        for key in self.options:
+            if key.startswith('form-') or key == 'saved_as':
+                if not hasattr(document.settings, 'image_uris'):
+                    document.settings.image_uris = {}
+                document.settings.image_uris['image ' + uri + '.' + key] = self.options[key]
+
         result_nodes = self.change_uri(document, app, uri)
 
         self.handle_scaling(document, app, result_nodes)
@@ -585,7 +592,8 @@ class Rst2Wp(Application):
                     # let's stick it in document.settings too
                     if not hasattr(document.settings, 'image_uris'):
                         document.settings.image_uris = {}
-                    document.settings.image_uris[key] = value
+                    # FIXME: section+key??
+                    document.settings.image_uris[section+'.'+key] = value
             else:
                 raise ValueError, "couldn't save data in {location}".format(location=location)
 
@@ -604,7 +612,7 @@ class Rst2Wp(Application):
                 # FIXME: as below
                 # Ideally this has been about to be written to a file
                 if hasattr(document.settings, 'image_uris'):
-                    return document.settings.image_uris[key]
+                    return document.settings.image_uris[section+'.'+key]
                 if self.data_storage == 'file':
                     raise ValueError, "uh oh.. don't know what the image URI should be for {uri}".format(uri=section)
 
