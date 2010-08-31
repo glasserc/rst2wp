@@ -45,6 +45,7 @@ See the source for more details.'''.format(name=os.path.basename(sys.argv[0]))
 class MyImageDirective(directives.images.Image):
     option_spec = directives.images.Image.option_spec.copy()
     option_spec.update({'saved_as': directives.unchanged,
+                        'scale': directives.unchanged,
                         'title': directives.unchanged})
 
     def run(self):
@@ -53,6 +54,13 @@ class MyImageDirective(directives.images.Image):
         document = self.state_machine.document
         app = document.settings.application
 
+        result_nodes = self.change_uri(document, app, uri)
+
+        self.handle_scaling(document, app, result_nodes)
+
+        return result_nodes
+
+    def change_uri(self, document, app, uri):
         if 'saved_as' in self.options or app.has_info(document, 'image '+uri, 'new uri', location=IMAGES_LOCATION) \
                 or app.has_info(document, 'image '+uri, 'saved_as', location=IMAGES_LOCATION):
             document.settings.used_images[uri] = True
@@ -70,23 +78,33 @@ class MyImageDirective(directives.images.Image):
         else:
             # Call the super here to update options, etc.
             result_nodes = directives.images.Image.run(self)
-
-            # Use a pending to do stuff here -- download after all the
-            # checking is done
-            pending = nodes.pending(DownloadImageTransform, rawsource=self.block_text)
-            pending.details.update(self.options)
-            document.note_pending(pending)
-
-            # This could be any inline element, but we use the image we'd
-            # normally have to look coherent.
-            last_node = result_nodes[-1]
-            if isinstance(last_node, nodes.reference):
-                last_node = last_node.children[0]
-
-            # Embed the pending in the image node
-            last_node += pending
+            self.insert_pending(document, result_nodes, DownloadImageTransform)
 
         return result_nodes
+
+    def insert_pending(self, document, result_nodes, pending_class):
+        """Insert a pending"""
+        pending = nodes.pending(pending_class, rawsource=self.block_text)
+        pending.details.update(self.options)
+        document.note_pending(pending)
+
+        # This could be any inline element, but we use the image we'd
+        # normally have to look coherent.
+        last_node = result_nodes[-1]
+        if isinstance(last_node, nodes.reference):
+            last_node = last_node.children[0]
+
+        # Embed the pending in the image node
+        last_node += pending
+
+    def handle_scaling(self, document, app, nodes):
+        """Handle scaling an image by inserting a ScaleImageTransform, if necessary."""
+        if 'scale' in self.options:
+            # FIXME: this is just a sanity check for now because scale replaces target
+            if 'target' in self.options:
+                raise ValueError("Cannot have both scale and target on image {uri}".format(
+                        uri=directives.uri(self.arguments[0])))
+            self.insert_pending(document, nodes, ScaleImageTransform)
 
 directives.register_directive('image', MyImageDirective)
 
@@ -104,6 +122,9 @@ class MyTranslator(docutils.writers.html4css1.HTMLTranslator):
 class DownloadImageTransform(docutils.transforms.Transform):
     default_priority = 100
     def apply(self, **kwargs):
+        self.save_uploads = app.config.has_option('config', 'save_uploads') and \
+            app.config.getboolean('config', 'save_uploads') == True
+
         if self.document.settings.application.preview:
             print "Not downloading image because we're previewing document"
             if self.startnode:
@@ -125,7 +146,8 @@ class DownloadImageTransform(docutils.transforms.Transform):
 
         app = self.document.settings.application
 
-        self.upload_image(uri)
+        filename = self.download_image(uri)
+        self.upload_image(uri, filename)
 
         new_uri = app.get_info(self.document, 'image ' + uri, 'saved_as', location=IMAGES_LOCATION)
         self.document.settings.used_images[uri] = True
@@ -135,8 +157,7 @@ class DownloadImageTransform(docutils.transforms.Transform):
         image = nodes.image(**details)
         return image
 
-
-    def upload_image(self, uri):
+    def download_image(self, uri):
         app = self.document.settings.application
 
         # FIXME: this might not work on non-Unix -- but who cares?
@@ -148,9 +169,7 @@ class DownloadImageTransform(docutils.transforms.Transform):
         #print "returned:", filename, headers
 
         dir = TEMP_DIRECTORY
-        save_uploads = app.config.has_option('config', 'save_uploads') and \
-            app.config.getboolean('config', 'save_uploads') == True
-        if save_uploads:
+        if self.save_uploads:
             dir = os.path.join(os.path.dirname(app.filename), 'uploads')
             try: os.mkdir(dir)
             except OSError, e:
@@ -162,16 +181,29 @@ class DownloadImageTransform(docutils.transforms.Transform):
             print("Downloading {0}".format(uri))
             filename, headers = urllib.urlretrieve(uri, os.path.join(dir, target_filename))
 
+        return filename
+
+    def upload_image(self, uri, filename):
         wp = self.document.settings.wordpress_instance
         print 'uploading file', uri, filename
         new_uri = wp.upload_file(filename, overwrite=True)
 
-        if not save_uploads and filename.startswith(TEMP_DIRECTORY):
+        if not self.save_uploads and filename.startswith(TEMP_DIRECTORY):
             # FIXME?
             os.unlink(filename)
 
         app = self.document.settings.application
         app.save_info(self.document, 'image '+ uri, 'saved_as', new_uri, IMAGES_LOCATION, image=uri)
+
+class ScaleImageTransform(docutils.transforms.Transform):
+    '''Creates a new image by scaling another image'''
+    default_priority = 101
+
+    def apply(self, **kwargs):
+        print("Threatening to scale {0} with {1}".format(self.startnode, kwargs))
+
+        if self.startnode.parent:
+            self.startnode.parent.replace_self([])
 
 class BibliographicTransform(docutils.transforms.Transform):
     '''Parses the crap out of the bibliographic fields in the document
