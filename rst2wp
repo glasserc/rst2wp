@@ -340,6 +340,13 @@ class Rst2Wp(Application):
                   # FIXME: fugly hack
                   image=None):
         "Usage: app.save_info(document, 'post ' + filename, 'id', '365')"
+        # N.B. The get_info, has_info, and save_info rely on the
+        # convention that if you're looking for some info on an image, you pass
+        # section = 'image http://www.example.com/image.jpg', key = 'saved_as',
+        # and (for save_info) image = 'http://www.example.com/image.jpg'.
+        # save_info uses the extra argument to locate the image in the source file.
+        # It also relies on the fact that document.settings.image_uris is a dict
+        # of 'image http://www.example.com/image.jpg.form-200x200' => uploaded URL.
         location = location or POSTS_LOCATION
         data_storage = self.data_storage
         if data_storage in ['both', 'dotrc']:
@@ -362,9 +369,7 @@ class Rst2Wp(Application):
             elif location == IMAGES_LOCATION:
                 if image:
                     self.replace_image(document, image, key, value)
-                    # But since that won't hit the disk until after the post,
-                    # let's stick it in document.settings too
-                    # FIXME: section+key??
+                    # Also update document.settings with the new info.
                     document.settings.image_uris[section+'.'+key] = value
             else:
                 raise ValueError, "couldn't save data in {location}".format(location=location)
@@ -381,10 +386,10 @@ class Rst2Wp(Application):
                 #print("Looking up {key} and finding {value}".format(key=key, value=document.settings.bibliographic_fields[key]))
                 return document.settings.bibliographic_fields[key]
             elif location == IMAGES_LOCATION:
-                # FIXME: as below
-                # Ideally this has been about to be written to a file
-                if hasattr(document.settings, 'image_uris'):
+                try:
                     return document.settings.image_uris[section+'.'+key]
+                except KeyError:
+                    pass
                 if self.data_storage == 'file':
                     raise ValueError, "uh oh.. don't know what the image URI should be for {uri}".format(uri=section)
 
@@ -396,11 +401,10 @@ class Rst2Wp(Application):
             if location == POSTS_LOCATION:
                 return (key in document.settings.bibliographic_fields)
             elif location == IMAGES_LOCATION:
-                # FIXME: I don't have a better idea here
-                # If you're looking for a URL for an image in the file itself,
-                # hopefully it's been saved as saved_as: new_url, but what if
-                # the image shows up multiple times? I dunno.
-                pass
+                try:
+                    return document.settings.image_uris[section+'.'+key]
+                except KeyError:
+                    pass
 
         class NO_DEFAULT:
             pass
