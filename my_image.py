@@ -31,8 +31,6 @@ class MyImageDirective(directives.images.Image):
         app = document.settings.application
 
         # Store all the saved forms of this image in document.settings.
-        if not hasattr(document.settings, 'image_uris'):
-            document.settings.image_uris = {}
         for key in self.options:
             if key.startswith('form-') or key == 'saved_as':
                 document.settings.image_uris['image ' + uri + '.' + key] = self.options[key]

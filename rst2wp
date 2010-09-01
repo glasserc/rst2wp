@@ -364,8 +364,6 @@ class Rst2Wp(Application):
                     self.replace_image(document, image, key, value)
                     # But since that won't hit the disk until after the post,
                     # let's stick it in document.settings too
-                    if not hasattr(document.settings, 'image_uris'):
-                        document.settings.image_uris = {}
                     # FIXME: section+key??
                     document.settings.image_uris[section+'.'+key] = value
             else:
@@ -509,11 +507,14 @@ class Rst2Wp(Application):
         writer = docutils.writers.html4css1.Writer()
         writer.translator_class = MyTranslator
 
+        image_uris = {}
+
         output = core.publish_parts(source=text, writer=writer,
                                     reader=reader,
                                     settings_overrides={
                 'wordpress_instance' : wp,
                 'application': self,
+                'image_uris': image_uris,
                 'used_images': used_images,
                 # FIXME: probably a nicer way to do this
                 'filename': self.filename,
