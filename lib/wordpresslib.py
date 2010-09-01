@@ -281,7 +281,7 @@ class WordPressClient():
         postObj.excerpt         = post['mt_excerpt']
         postObj.user            = post['userid']
         postObj.date            = time.strptime(str(post['date_created_gmt']), "%Y%m%dT%H:%M:%S")
-        print "Parsing date:", postObj.date, post['dateCreated'], post
+        print "Parsing date:", postObj.date, post['dateCreated']
         postObj.link            = post['link']
         postObj.textMore        = post['mt_text_more']
         postObj.allowComments   = post['mt_allow_comments'] == 1

@@ -20,7 +20,7 @@ class MyImageDirective(directives.images.Image):
 
     def run(self):
         uri = directives.uri(self.arguments[0])
-        print 'Handling image directive:', uri, self.options
+        #print 'Handling image directive:', uri, self.options
         # directives.images.Image.run eats target, so we store it here
         if 'target' in self.options:
             self.options['orig_target'] = self.options['target']
@@ -31,7 +31,7 @@ class MyImageDirective(directives.images.Image):
         app = document.settings.application
 
         # Store all the saved forms of this image in document.settings.
-        for key in self.options:
+g        for key in self.options:
             if key.startswith('form-') or key == 'saved_as':
                 document.settings.image_uris['image ' + uri + '.' + key] = self.options[key]
 
