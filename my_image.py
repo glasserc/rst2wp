@@ -1,8 +1,10 @@
 ## MyImageDirective: a replacement for the Image directive that
 ## insinuates transforms when necessary.
 import docutils.parsers.rst.directives.images
+from docutils import core, io, nodes, utils
 from docutils.parsers.rst import roles, directives, languages
 
+from config import POSTS_LOCATION, IMAGES_LOCATION
 from my_transforms import DownloadImageTransform, ScaleImageTransform
 
 # Arguments starting with form-* are all OK.

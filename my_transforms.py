@@ -1,4 +1,13 @@
+import urllib
+import os.path
 import docutils.transforms
+from docutils import nodes
+from config import POSTS_LOCATION, IMAGES_LOCATION, TEMP_DIRECTORY, TEMP_FILES
+try:
+    import Image
+except ImportError:
+    print("WARNING: PIL is absent. Won't be able to automatically scale images.")
+    Image = None
 
 class ImageHandlerTransform(docutils.transforms.Transform):
     @property

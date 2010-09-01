@@ -20,21 +20,13 @@ from docutils.readers import standalone
 import docutils.writers.html4css1
 import docutils.transforms
 #import yaml
-import urllib
-try:
-    import Image
-except ImportError:
-    print("WARNING: PIL is absent. Won't be able to automatically scale images.")
-    Image = None
 import utils
 
 sys.path.insert(0, os.path.join(os.path.abspath(os.path.dirname(__file__)), "lib"))
 
-TEMP_DIRECTORY = '/tmp'
-TEMP_FILES = []
-
 import wordpresslib
 from my_image import MyImageDirective
+from config import IMAGES_LOCATION, POSTS_LOCATION, TEMP_FILES
 
 class UsageError(Exception):
     @classmethod
@@ -147,15 +139,17 @@ Set config.default_category to do this automatically.
             fields['categories'] = categories = [app.config.get('config', 'default_category')]
 
         wp = self.document.settings.wordpress_instance
-        for cat in categories:
-            self.check_existing_category(wp, cat)
+        if not self.document.settings.application.dont_check_tags:
+            for cat in categories:
+                self.check_existing_category(wp, cat)
 
         if 'tag' in fields:
             fields['tags'] = fields.pop('tag')
 
         if 'tags' in fields:
-            for tag in fields['tags']:
-                self.check_existing_tag(wp, tag)
+            if not self.document.settings.application.dont_check_tags:
+                for tag in fields['tags']:
+                    self.check_existing_tag(wp, tag)
         print "Tags/categories: OK"
 
     def check_existing_tag(self, wp, tag):
@@ -316,6 +310,8 @@ class Rst2Wp(Application):
                             help="don't upload; render to HTML and display in $BROWSER")
         parser.add_argument('-c', '--config', dest='alt_config', nargs='?', type=str,
                             help='use alternate config (see README for details)')
+        parser.add_argument('--dont-check-tags', action='store_true',
+                            help="don't check categories/tags for existance")
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument('filename', type=str, nargs='?',
                             help='the ReStructuredText source file (optional if querying tags/categories)')
@@ -351,7 +347,7 @@ class Rst2Wp(Application):
         data_storage = self.data_storage
         if data_storage in ['both', 'dotrc']:
             config = ConfigParser.SafeConfigParser()
-            filename = location(self)
+            filename = location()
             if os.path.exists(filename):
                 with file(filename) as f:
                     config.readfp(f)
@@ -393,7 +389,7 @@ class Rst2Wp(Application):
                 if self.data_storage == 'file':
                     raise ValueError, "uh oh.. don't know what the image URI should be for {uri}".format(uri=section)
 
-        return self.search_configs(location(self), section, key)
+        return self.search_configs(location(), section, key)
 
     def has_info(self, document, section, key, location=None):
         location = location or POSTS_LOCATION
@@ -409,7 +405,7 @@ class Rst2Wp(Application):
         class NO_DEFAULT:
             pass
 
-        return self.search_configs(location(self), section, key, NO_DEFAULT) is not NO_DEFAULT
+        return self.search_configs(location(), section, key, NO_DEFAULT) is not NO_DEFAULT
 
 
     def replace_field(self, document, key, value):
@@ -451,14 +447,6 @@ class Rst2Wp(Application):
         data_storage = self.config.get('config', 'data_storage')
         save_to_file = data_storage in ['both', 'file']
         return self.text != file(self.filename).read() and save_to_file
-
-    def posts_location(self):
-        return os.path.join(BaseDirectory.save_config_path('rst2wp', 'published'),
-                            'posts')
-
-    def images_location(self):
-        return os.path.join(BaseDirectory.save_config_path('rst2wp', 'published'),
-                            'images')
 
     def create_client(self, url, username, password):
         wp = wordpresslib.WordPressClient(url, username, password)
@@ -622,9 +610,6 @@ class Rst2Wp(Application):
         categories = self.wp.get_categories()
         for category in tags:
             print '{name} (id {id})'.format(**tag.__dict__)
-
-POSTS_LOCATION = Rst2Wp.posts_location
-IMAGES_LOCATION = Rst2Wp.images_location
 
 if __name__ == '__main__':
     try:
