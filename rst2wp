@@ -413,6 +413,9 @@ class Rst2Wp(Application):
 
 
     def replace_field(self, document, key, value):
+        '''Inserts a bibliographic field into the header of an RST document.
+
+        Replaces an existing field of the same name.'''
         keystring = ':{key}:'.format(key=key)
         new_line = '{keystring} {value}'.format(keystring=keystring, value=value.encode('utf8'))
 
