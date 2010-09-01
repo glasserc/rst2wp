@@ -16,8 +16,6 @@ import sys
 import os.path
 import tempfile, subprocess, time
 from docutils import core, io, nodes, utils
-from docutils.parsers.rst import roles, directives, languages
-import docutils.parsers.rst.directives.images
 from docutils.readers import standalone
 import docutils.writers.html4css1
 import docutils.transforms
@@ -35,6 +33,7 @@ TEMP_DIRECTORY = '/tmp'
 TEMP_FILES = []
 
 import wordpresslib
+from my_image import MyImageDirective
 
 class UsageError(Exception):
     @classmethod
@@ -48,87 +47,6 @@ See the source for more details.'''.format(name=os.path.basename(sys.argv[0]))
         return "{error}\nSee '{path} --help'.".format(error=self.args[0],
                                                       path=self.args[1])
 
-class WildDict(dict):
-    def __missing__(self, item):
-        if item.startswith('form-'): return directives.unchanged
-        raise KeyError
-
-class MyImageDirective(directives.images.Image):
-    option_spec = WildDict(directives.images.Image.option_spec)
-    option_spec.update({'saved_as': directives.unchanged,
-                        'scale': directives.unchanged,
-                        'title': directives.unchanged})
-
-    def run(self):
-        uri = directives.uri(self.arguments[0])
-        print 'Handling image directive:', uri, self.options
-        # directives.images.Image.run eats target
-        if 'target' in self.options:
-            self.options['orig_target'] = self.options['target']
-        self.options['orig_uri'] = uri
-        document = self.state_machine.document
-        app = document.settings.application
-
-        # FIXME: hack, hack, hack
-        for key in self.options:
-            if key.startswith('form-') or key == 'saved_as':
-                if not hasattr(document.settings, 'image_uris'):
-                    document.settings.image_uris = {}
-                document.settings.image_uris['image ' + uri + '.' + key] = self.options[key]
-
-        result_nodes = self.change_uri(document, app, uri)
-
-        self.handle_scaling(document, app, result_nodes)
-
-        return result_nodes
-
-    def change_uri(self, document, app, uri):
-        if 'saved_as' in self.options or app.has_info(document, 'image '+uri, 'new uri', location=IMAGES_LOCATION) \
-                or app.has_info(document, 'image '+uri, 'saved_as', location=IMAGES_LOCATION):
-            document.settings.used_images[uri] = True
-            if 'saved_as' in self.options:
-                real_uri = self.options['saved_as']
-            elif app.has_info(document, 'image '+uri, 'saved_as', location=IMAGES_LOCATION):
-                real_uri = app.get_info(document, 'image ' + uri, 'saved_as', location=IMAGES_LOCATION)
-            else:
-                real_uri = app.get_info(document, 'image ' + uri, 'new uri', location=IMAGES_LOCATION)
-            print "Using saved location for image:", real_uri
-
-            self.arguments[0] = real_uri
-            result_nodes = directives.images.Image.run(self)
-
-        else:
-            # Call the super here to update options, etc.
-            result_nodes = directives.images.Image.run(self)
-            self.insert_pending(document, result_nodes, DownloadImageTransform)
-
-        return result_nodes
-
-    def insert_pending(self, document, result_nodes, pending_class):
-        """Insert a pending"""
-        pending = nodes.pending(pending_class, rawsource=self.block_text)
-        pending.details.update(self.options)
-        document.note_pending(pending)
-
-        # This could be any inline element, but we use the image we'd
-        # normally have to look coherent.
-        last_node = result_nodes[-1]
-        if isinstance(last_node, nodes.reference):
-            last_node = last_node.children[0]
-
-        # Embed the pending in the image node
-        last_node += pending
-
-    def handle_scaling(self, document, app, nodes):
-        """Handle scaling an image by inserting a ScaleImageTransform, if necessary."""
-        if 'scale' in self.options:
-            # FIXME: this is just a sanity check for now because scale replaces target
-            # if 'orig_target' in self.options:
-            #     raise ValueError("Cannot have both scale and target on image {uri}".format(
-            #             uri=directives.uri(self.arguments[0])))
-            self.insert_pending(document, nodes, ScaleImageTransform)
-
-directives.register_directive('image', MyImageDirective)
 
 class MyTranslator(docutils.writers.html4css1.HTMLTranslator):
     def visit_image(self, node):
@@ -140,171 +58,6 @@ class MyTranslator(docutils.writers.html4css1.HTMLTranslator):
         if title:
             # Hackishly insert the image title into the image tag
             self.body[-1] = image.replace('/>', 'title="%s" />'%self.attval(title))
-
-class ImageHandlerTransform(docutils.transforms.Transform):
-    @property
-    def save_uploads(self, *args, **kwargs):
-        if not hasattr(self, '_save_uploads'):
-            app = self.document.settings.application
-            self._save_uploads = app.config.has_option('config', 'save_uploads') and \
-                app.config.getboolean('config', 'save_uploads') == True
-        return self._save_uploads
-
-    def uri_filename(self, uri):
-        # FIXME: this might not work on non-Unix -- but who cares?
-        target_filename = os.path.split(uri)[1]
-        if '?' in target_filename:
-            target_filename = target_filename[:target_filename.index('?')]
-        if '.' not in target_filename:
-            target_filename = raw_input("Image specified by %s doesn't have a filename.\nWhat would you like this image to be named?\n> "%(uri,))
-
-        return target_filename
-
-    def uploads_dir(self):
-        app = self.document.settings.application
-        dir = TEMP_DIRECTORY
-        if self.save_uploads:
-            dir = os.path.join(os.path.dirname(app.filename), 'uploads')
-            try: os.mkdir(dir)
-            except OSError, e:
-                # Probably "file exists"
-                if e.errno != 17: raise
-
-        return dir
-
-    def cleanup_file(self, filename):
-        if not self.save_uploads and filename.startswith(TEMP_DIRECTORY):
-            TEMP_FILES.append(filename)
-
-    @property
-    def uri(self):
-        return self.startnode.details['uri']
-
-    def upload_image(self, uri, filename, attribute='saved_as'):
-        '''Upload ``filename`` as the replacement for ``uri`` in the document.
-
-        Save the resulting filename in the metainfo for the document, using the attribute given by ``attribute``.'''
-        wp = self.document.settings.wordpress_instance
-        print 'uploading file', uri, filename
-        new_uri = wp.upload_file(filename, overwrite=True)
-
-        app = self.document.settings.application
-        app.save_info(self.document, 'image '+ uri, attribute, new_uri, IMAGES_LOCATION, image=uri)
-
-    def replace_with_new_image(self, uri, find_url_with='saved_as'):
-        app = self.document.settings.application
-        new_uri = app.get_info(self.document, 'image ' + uri, find_url_with, location=IMAGES_LOCATION)
-        self.document.settings.used_images[uri] = True
-
-        details = self.startnode.details.copy()
-        details['uri'] = new_uri
-        image = nodes.image(**details)
-        if self.startnode.parent:
-            self.startnode.parent.replace_self(image)
-
-class DownloadImageTransform(ImageHandlerTransform):
-    default_priority = 100
-    def apply(self, **kwargs):
-        if self.document.settings.application.preview:
-            print "Not downloading image because we're previewing document"
-            if self.startnode:
-                self.startnode.replace_self([])
-
-            return
-
-        print "replacing image with a downloaded verison"
-        self.build_downloaded_node()
-
-    def build_downloaded_node(self):
-        # FIXME: disabling for now
-        #return nodes.image(uri=self.startnode.details['uri'])
-        uri = self.uri
-
-        app = self.document.settings.application
-        filename = self.download_image(uri)
-        self.upload_image(uri, filename)
-
-        self.replace_with_new_image(uri, find_url_with='saved_as')
-
-    def download_image(self, uri):
-        app = self.document.settings.application
-
-        target_filename = self.uri_filename(uri)
-        dir = self.uploads_dir()
-
-        filename = os.path.join(dir, target_filename)
-        if not os.path.exists(filename):
-            print("Downloading {0}".format(uri))
-            filename, headers = urllib.urlretrieve(uri, os.path.join(dir, target_filename))
-
-        self.cleanup_file(filename)
-        return filename
-
-class ScaleImageTransform(ImageHandlerTransform):
-    '''Creates a new image by scaling another image'''
-    default_priority = 101
-
-    def apply(self):
-        scale = self.startnode.details['scale']
-
-        app = self.document.settings.application
-        # The URI of the image itself. We can't use details['uri'] because that points to the uploaded URI.
-        # Use original URI, put in place by MyImageDirective.
-        uri = self.startnode.details['orig_uri']
-        full_uri = self.startnode.details['uri']
-
-        # Details for new image node we'll create.
-        details = self.startnode.details.copy()
-
-        # Add a target to point to the full-size image we uploaded.
-        if 'orig_target' not in self.startnode.details:
-            # FIXME: is this right? Doesn't this change stuff in dotrc backends too?
-            app.save_info(self.document, 'image '+ uri, 'target', full_uri, IMAGES_LOCATION, image=uri)
-            details['orig_target'] = full_uri
-        details['target'] = details['orig_target']
-
-        # Create some string-based representations of the image name
-        suffix = '{scale}'.format(scale=scale)
-        image_name = 'form-{suffix}'.format(suffix=suffix)
-
-        # If this attribute already exists, we don't need to re-generate or re-upload.
-        # FIXME: make this work for dotrc too
-        #if not app.has_info(self.document, 'image ' + uri, image_name, IMAGES_LOCATION, image=uri):
-        if image_name not in self.startnode.details:
-            # Get the filename we expect to find the source, and create
-            # a similar filename for the thumbnail.
-            target_filename = self.uri_filename(uri)
-            head, ext = os.path.splitext(target_filename)
-            dir = self.uploads_dir()
-            orig_filename = os.path.join(dir, target_filename)
-            new_filename = os.path.join(dir, "{head}-{suffix}{ext}".format(head=head, suffix=suffix, ext=ext))
-
-            if not os.path.exists(orig_filename):
-                print("Scaling image without a local source: redownloading {0} to {1}".format(uri, orig_filename))
-                #filename, headers = urllib.urlretrieve(uri, os.path.join(dir, target_filename))
-
-            self.process_image(orig_filename, new_filename, scale=scale)
-            self.cleanup_file(new_filename)
-
-            self.upload_image(uri, new_filename, attribute=image_name)
-
-        self.replace_with_new_image(uri, find_url_with=image_name)
-
-    def process_image(self, orig_filename, new_filename, scale=None):
-        print("Scaling image from {0} to {1}".format(orig_filename, new_filename))
-        image = Image.open(orig_filename)
-        if scale:
-            dimensions = factor = None
-            try:
-                factor = float(scale)
-                dimensions = image.size
-                dimensions = dimensions[0]*factor, dimensions[1]*factor
-            except ValueError, e:
-                dimensions = scale.split('x')
-                dimensions = int(dimensions[0]), int(dimensions[1])
-
-        image.thumbnail(dimensions, Image.ANTIALIAS)
-        image.save(new_filename)
 
 
 class BibliographicTransform(docutils.transforms.Transform):
