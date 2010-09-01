@@ -63,7 +63,8 @@ class MyImageDirective(directives.images.Image):
         uri = directives.uri(self.arguments[0])
         print 'Handling image directive:', uri, self.options
         # directives.images.Image.run eats target
-        self.options['orig_target'] = self.options['target']
+        if 'target' in self.options:
+            self.options['orig_target'] = self.options['target']
         self.options['orig_uri'] = uri
         document = self.state_machine.document
         app = document.settings.application
