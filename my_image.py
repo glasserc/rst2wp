@@ -44,15 +44,12 @@ g        for key in self.options:
         return result_nodes
 
     def change_uri(self, document, app, uri):
-        if 'saved_as' in self.options or app.has_info(document, 'image '+uri, 'new uri', location=IMAGES_LOCATION) \
-                or app.has_info(document, 'image '+uri, 'saved_as', location=IMAGES_LOCATION):
+        if 'saved_as' in self.options or app.has_info(document, 'image '+uri, 'saved_as', location=IMAGES_LOCATION):
             document.settings.used_images[uri] = True
             if 'saved_as' in self.options:
                 real_uri = self.options['saved_as']
             elif app.has_info(document, 'image '+uri, 'saved_as', location=IMAGES_LOCATION):
                 real_uri = app.get_info(document, 'image ' + uri, 'saved_as', location=IMAGES_LOCATION)
-            else:
-                real_uri = app.get_info(document, 'image ' + uri, 'new uri', location=IMAGES_LOCATION)
             print "Using saved location for image:", real_uri
 
             self.arguments[0] = real_uri
