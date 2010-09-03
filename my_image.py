@@ -74,10 +74,13 @@ class MyImageDirective(directives.images.Image):
         # normally have to look coherent.
         last_node = result_nodes[-1]
         if isinstance(last_node, nodes.reference):
+            # This happens when there's a :target:
             last_node = last_node.children[0]
 
         # Embed the pending in the image node
         last_node += pending
+        # print("Adding pending of {pending_class}, {pending_id} to node {id}: {node}".format(
+        #         pending_class=pending_class, pending_id=id(pending), id=id(last_node), node=last_node))
 
     def handle_scaling(self, document, app, nodes):
         """Handle scaling an image by inserting a ScaleImageTransform, if necessary."""
