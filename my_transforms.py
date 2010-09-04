@@ -67,8 +67,19 @@ class ImageHandlerTransform(docutils.transforms.Transform):
         details = self.startnode.details.copy()
         details['uri'] = new_uri
         image = nodes.image(**details)
+        # print("Transform of class {transform} splicing in {image}x{image_id} to replace {node}x{node_id}.".format(
+        #         transform=self.__class__, image=image, image_id=id(image), node=self.startnode.parent, node_id=id(self.startnode.parent)))
+        # print("Startnode was {id}".format(id=id(self.startnode)))
         if self.startnode.parent:
+            # Splice in the new image
             self.startnode.parent.replace_self(image)
+
+            # Get rid of this particular transform
+            self.startnode.parent.replace(self.startnode, [])
+
+            # Any other pendings?
+            for child in self.startnode.parent:
+                image += child
 
 class DownloadImageTransform(ImageHandlerTransform):
     default_priority = 100
@@ -116,10 +127,13 @@ class ScaleImageTransform(ImageHandlerTransform):
         scale = self.startnode.details['scale']
 
         app = self.document.settings.application
-        # The URI of the image itself. We can't use details['uri'] because that points to the uploaded URI.
-        # Use original URI, put in place by MyImageDirective.
+        # The URI of the image itself. We can't use details['uri']
+        # because when we got a saved_as, the 'uri' points to that.
+        # Instead use original URI, put in place by MyImageDirective.
         uri = self.startnode.details['orig_uri']
-        full_uri = self.startnode.details['uri']
+
+        # Either way, though, this is the URI where the image now lives
+        full_uri = self.startnode.parent['uri']
 
         # Details for new image node we'll create.
         details = self.startnode.details.copy()
@@ -166,7 +180,7 @@ class ScaleImageTransform(ImageHandlerTransform):
             try:
                 factor = float(scale)
                 dimensions = image.size
-                dimensions = dimensions[0]*factor, dimensions[1]*factor
+                dimensions = int(dimensions[0]*factor), int(dimensions[1]*factor)
             except ValueError, e:
                 dimensions = scale.split('x')
                 dimensions = int(dimensions[0]), int(dimensions[1])
