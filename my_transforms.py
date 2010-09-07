@@ -6,10 +6,17 @@ from config import POSTS_LOCATION, IMAGES_LOCATION, TEMP_DIRECTORY, TEMP_FILES
 try:
     import Image
 except ImportError:
-    print("WARNING: PIL is absent. Won't be able to automatically scale images.")
+    print("WARNING: PIL is absent. Won't be able to automatically scale/rotate images.")
     Image = None
 
+# FIXME: this is kind of a hack.
+# I have two transforms here, one which downloads/uploads the image,
+# another which scales it. Data is stored willy-nilly; I'm not even
+# sure it works correctly if you have a dotrc data backend.
+# Scaling is sophisticated -- stores different forms -- but rotating
+# is not. Neither does anything during a preview.
 class ImageHandlerTransform(docutils.transforms.Transform):
+    '''Base class for transforms to come'''
     @property
     def save_uploads(self, *args, **kwargs):
         if not hasattr(self, '_save_uploads'):
@@ -81,6 +88,11 @@ class ImageHandlerTransform(docutils.transforms.Transform):
             for child in self.startnode.parent:
                 image += child
 
+    def filename_insert_before_extension(self, filename, suffix):
+        head, ext = os.path.splitext(filename)
+        new_filename = "{head}-{suffix}{ext}".format(head=head, suffix=suffix, ext=ext)
+        return new_filename
+
 class DownloadImageTransform(ImageHandlerTransform):
     default_priority = 100
     def apply(self, **kwargs):
@@ -101,9 +113,26 @@ class DownloadImageTransform(ImageHandlerTransform):
 
         app = self.document.settings.application
         filename = self.download_image(uri)
+
+        # This is a quick hack.
+        # FIXME: rewrite everything
+        if 'rotate' in self.startnode.details:
+            filename = self.rotate_image(filename)
+
         self.upload_image(uri, filename)
 
         self.replace_with_new_image(uri, find_url_with='saved_as')
+
+    def rotate_image(self, filename):
+        degrees = self.startnode.details['rotate']
+        new_filename = self.filename_insert_before_extension(filename, 'rot{0}'.format(degrees))
+        degrees = float(degrees)
+
+        image = Image.open(filename)
+        image = image.rotate(degrees)
+        image.save(new_filename)
+        return new_filename
+
 
     def download_image(self, uri):
         app = self.document.settings.application
@@ -156,10 +185,9 @@ class ScaleImageTransform(ImageHandlerTransform):
             # Get the filename we expect to find the source, and create
             # a similar filename for the thumbnail.
             target_filename = self.uri_filename(uri)
-            head, ext = os.path.splitext(target_filename)
             dir = self.uploads_dir()
             orig_filename = os.path.join(dir, target_filename)
-            new_filename = os.path.join(dir, "{head}-{suffix}{ext}".format(head=head, suffix=suffix, ext=ext))
+            new_filename = self.filename_insert_before_extension(orig_filename, suffix)
 
             if not os.path.exists(orig_filename):
                 print("Scaling image without a local source: redownloading {0} to {1}".format(uri, orig_filename))

@@ -17,6 +17,7 @@ class WildDict(dict):
 class MyImageDirective(directives.images.Image):
     option_spec = WildDict(directives.images.Image.option_spec)
     option_spec.update({'saved_as': directives.unchanged,
+                        'rotate': directives.unchanged,
                         'scale': directives.unchanged,
                         'title': directives.unchanged})
 
