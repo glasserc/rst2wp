@@ -36,7 +36,6 @@ class UploadDirective(Directive):
         return [node]
 
     def upload_file(self, filename):
-        return "FOO"
         self.wp = self.state_machine.document.settings.wordpress_instance
         return self.wp.upload_file(filename)
 
