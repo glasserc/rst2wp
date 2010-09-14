@@ -209,6 +209,7 @@ class WordPressReader(standalone.Reader):
 
 
 class Application(object):
+    '''Container for all dotrc-config-related stuff'''
     config_name = 'rst2wp'
     def __init__(self):
         super(Application, self).__init__()
@@ -220,6 +221,7 @@ class Application(object):
         return self._load_config()
 
     def _read_configs_into(self, config, filepath='wordpressrc', config_name='config'):
+        '''Used to read application config (blog name, etc.)'''
         for dir in BaseDirectory.load_config_paths(self.config_name):
             filename = os.path.join(dir, filepath)
             if not os.path.exists(filename): continue
