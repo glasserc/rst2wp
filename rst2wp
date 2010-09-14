@@ -25,7 +25,8 @@ import utils
 sys.path.insert(0, os.path.join(os.path.abspath(os.path.dirname(__file__)), "lib"))
 
 import wordpresslib
-from my_image import MyImageDirective
+import my_image # registers MyImageDirective
+import upload   # registers UploadDirective
 from config import IMAGES_LOCATION, POSTS_LOCATION, TEMP_FILES
 
 class UsageError(Exception):
@@ -334,7 +335,7 @@ class Rst2Wp(Application):
 
     def save_info(self, document, section, key, value, location=None,
                   # FIXME: fugly hack
-                  image=None):
+                  image=None, type='image'):
         "Usage: app.save_info(document, 'post ' + filename, 'id', '365')"
         # N.B. The get_info, has_info, and save_info rely on the
         # convention that if you're looking for some info on an image, you pass
@@ -364,7 +365,7 @@ class Rst2Wp(Application):
                 self.replace_field(document, key, value)
             elif location == IMAGES_LOCATION:
                 if image:
-                    self.replace_image(document, image, key, value)
+                    self.replace_directive(document, image, key, value, type=type)
                     # Also update document.settings with the new info.
                     document.settings.image_uris[section+'.'+key] = value
             else:
@@ -432,13 +433,15 @@ class Rst2Wp(Application):
         m = r.search(s)
         return m.end()
 
-    def replace_image(self, document, image, key, value):
-        r = re.compile('image::\s+({uri})'.format(uri = re.escape(image)))
+    def replace_directive(self, document, uri, key, value, type='image'):
+        '''Add a field to a URL-based directive.'''
+        r = re.compile('{name}::\s+({uri})'.format(name=type, uri = re.escape(uri)))
         lines = self.text.split('\n')
 
         for i in range(len(lines)):
             if r.search(lines[i]):
                 n = self.get_indent(lines[i])
+                # FIXME: check if it's already there
                 lines.insert(i+1, ((n+3)*' ')+':{key}: {value}'.format(key=key, value=value))
 
         self.text = '\n'.join(lines)
