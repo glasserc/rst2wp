@@ -31,13 +31,20 @@ class UploadDirective(Directive):
             app.save_info(document, 'upload '+ filename, 'uploaded_form', new_url, IMAGES_LOCATION, image=filename,
                           type='upload')
 
-        node = nodes.paragraph()
-        node += nodes.Text("[uploaded file {0} goes here]".format(self.arguments[0]))
+        node = nodes.container(classes=['uploaded-file'])
+        size = self.file_size(filename)
+        type = self.guess_type(filename)
+
+        node += nodes.paragraph('', nodes.Text("{name} ({type}, {size})".format(name=filename, type=type, size=size)))
+
         return [node]
 
     def upload_file(self, filename):
         self.wp = self.state_machine.document.settings.wordpress_instance
         return self.wp.upload_file(filename)
+
+    def file_size(self, filename):
+        return 1024
 
     def guess_type(self, filename):
         m = magic.open(magic.MAGIC_NONE)
