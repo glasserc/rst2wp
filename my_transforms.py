@@ -66,12 +66,13 @@ class ImageHandlerTransform(docutils.transforms.Transform):
         app = self.document.settings.application
         app.save_info(self.document, 'image '+ uri, attribute, new_uri, IMAGES_LOCATION, image=uri)
 
-    def replace_with_new_image(self, uri, find_url_with='saved_as'):
+    def replace_with_new_image(self, uri, find_url_with='saved_as', details=None):
         app = self.document.settings.application
         new_uri = app.get_info(self.document, 'image ' + uri, find_url_with, location=IMAGES_LOCATION)
         self.document.settings.used_images[uri] = True
 
-        details = self.startnode.details.copy()
+        if details == None:
+            details = self.startnode.details.copy()
         details['uri'] = new_uri
         image = nodes.image(**details)
         # print("Transform of class {transform} splicing in {image}x{image_id} to replace {node}x{node_id}.".format(
@@ -198,7 +199,7 @@ class ScaleImageTransform(ImageHandlerTransform):
 
             self.upload_image(uri, new_filename, attribute=image_name)
 
-        self.replace_with_new_image(uri, find_url_with=image_name)
+        self.replace_with_new_image(uri, find_url_with=image_name, details=details)
 
     def process_image(self, orig_filename, new_filename, scale=None):
         print("Scaling image from {0} to {1}".format(orig_filename, new_filename))
