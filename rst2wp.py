@@ -378,20 +378,39 @@ class Rst2Wp(Application):
             print "Saving file with new data"
             file(self.filename, 'w').write(self.text)
 
-    def get_info(self, document, section, key, location=None):
-        location = location or POSTS_LOCATION
-        if self.data_storage in ['both', 'file']:
-            if location == POSTS_LOCATION:
-                #print("Looking up {key} and finding {value}".format(key=key, value=document.settings.bibliographic_fields[key]))
-                return document.settings.bibliographic_fields[key]
-            elif location == IMAGES_LOCATION:
-                try:
-                    return document.settings.directive_uris['image'][section+'.'+key]
-                except KeyError:
-                    pass
-                if self.data_storage == 'file':
-                    raise ValueError, "uh oh.. don't know what the image URI should be for {uri}".format(uri=section)
+    def get_post_info(self, document, key):
+        '''Get stored information about a post.
 
+        For data_storage=file, this means look at the bibliographic
+        fields. For data_storage=dotrc, this means look through the
+        POSTS_LOCATION file and try to find the section about the post.'''
+        if self.data_storage in ['both', 'file']:
+            return document.settings.bibliographic_fields[key]
+
+        # FIXME: use document to get filename?
+        section = "post " + self.filename
+        return self.search_configs(POSTS_LOCATION(), section, key)
+
+    def get_directive_info(self, document, directive, url, key):
+        '''Get info about a certain directive (for example, the uploaded_form for an image:: directive).
+
+        For data_storage=file, this information is stored as an option
+        in the directive itself, which are then read into
+        document.settings.directive_uris.  For data_storage=dotrc, it
+        is stored under a correspondingly-named section in
+        IMAGES_LOCATION.
+        '''
+        # Of course, this only really works with single-argument
+        # directives.
+        if self.data_storage in ['both', 'file']:
+            try:
+                return document.settings.directive_uris[directive][url+'.'+key]
+            except KeyError:
+                pass
+            if self.data_storage == 'file':
+                raise ValueError, "uh oh.. don't know what the image URI should be for {uri}".format(uri=section)
+
+        section = directive + ' ' + url
         return self.search_configs(location(), section, key)
 
     def has_info(self, document, section, key, location=None):
@@ -562,7 +581,7 @@ class Rst2Wp(Application):
         if publish == None: publish = False
 
         if self.has_info(reader.document, "post " + self.filename, 'id'):
-            post_id = self.get_info(reader.document, "post " + self.filename, 'id')
+            post_id = self.get_post_info(reader.document, 'id')
             post_id = unicode(post_id)
             post = wp.get_post(post_id)
 

@@ -68,7 +68,7 @@ class ImageHandlerTransform(docutils.transforms.Transform):
 
     def replace_with_new_image(self, uri, find_url_with='saved_as', details=None):
         app = self.document.settings.application
-        new_uri = app.get_info(self.document, 'image ' + uri, find_url_with, location=IMAGES_LOCATION)
+        new_uri = app.get_directive_info(self.document, 'image', uri, find_url_with)
         self.document.settings.used_images[uri] = True
 
         if details == None:

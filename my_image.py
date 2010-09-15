@@ -52,7 +52,7 @@ class MyImageDirective(directives.images.Image):
             if 'saved_as' in self.options:
                 real_uri = self.options['saved_as']
             elif app.has_info(document, 'image '+uri, 'saved_as', location=IMAGES_LOCATION):
-                real_uri = app.get_info(document, 'image ' + uri, 'saved_as', location=IMAGES_LOCATION)
+                real_uri = app.get_directive_info(document, 'image', uri, 'saved_as')
             print "Using saved location for image:", real_uri
 
             self.arguments[0] = real_uri
