@@ -344,7 +344,7 @@ class Rst2Wp(Application):
         # section = 'image http://www.example.com/image.jpg', key = 'saved_as',
         # and (for save_info) image = 'http://www.example.com/image.jpg'.
         # save_info uses the extra argument to locate the image in the source file.
-        # It also relies on the fact that document.settings.image_uris is a dict
+        # It also relies on the fact that document.settings.directive_uris['image'] is a dict
         # of 'image http://www.example.com/image.jpg.form-200x200' => uploaded URL.
         location = location or POSTS_LOCATION
         data_storage = self.data_storage
@@ -369,7 +369,7 @@ class Rst2Wp(Application):
                 if image:
                     self.replace_directive(document, image, key, value, type=type)
                     # Also update document.settings with the new info.
-                    document.settings.image_uris[section+'.'+key] = value
+                    document.settings.directive_uris['image'][section+'.'+key] = value
             else:
                 raise ValueError, "couldn't save data in {location}".format(location=location)
 
@@ -386,7 +386,7 @@ class Rst2Wp(Application):
                 return document.settings.bibliographic_fields[key]
             elif location == IMAGES_LOCATION:
                 try:
-                    return document.settings.image_uris[section+'.'+key]
+                    return document.settings.directive_uris['image'][section+'.'+key]
                 except KeyError:
                     pass
                 if self.data_storage == 'file':
@@ -401,7 +401,7 @@ class Rst2Wp(Application):
                 return (key in document.settings.bibliographic_fields)
             elif location == IMAGES_LOCATION:
                 try:
-                    return document.settings.image_uris[section+'.'+key]
+                    return document.settings.directive_uris['image'][section+'.'+key]
                 except KeyError:
                     pass
 
@@ -507,14 +507,14 @@ class Rst2Wp(Application):
         writer = docutils.writers.html4css1.Writer()
         writer.translator_class = MyTranslator
 
-        image_uris = {}
+        directive_uris = {'image': {}, 'upload': {}}
 
         output = core.publish_parts(source=text, writer=writer,
                                     reader=reader,
                                     settings_overrides={
                 'wordpress_instance' : wp,
                 'application': self,
-                'image_uris': image_uris,
+                'directive_uris': directive_uris,
                 'used_images': used_images,
                 # FIXME: probably a nicer way to do this
                 'filename': self.filename,

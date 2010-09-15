@@ -36,7 +36,7 @@ class MyImageDirective(directives.images.Image):
         # Store all the saved forms of this image in document.settings.
         for key in self.options:
             if key.startswith('form-') or key == 'saved_as':
-                document.settings.image_uris['image ' + uri + '.' + key] = self.options[key]
+                document.settings.directive_uris['image']['image ' + uri + '.' + key] = self.options[key]
 
         # Insert transform for DownloadImageTransform if needed -- or use saved_as
         result_nodes = self.change_uri(document, app, uri)
