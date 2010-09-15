@@ -378,7 +378,7 @@ class Rst2Wp(Application):
         # Save immediately, so as to not forget the location of an uploaded image
         if self.should_save_file():
             print "Saving file with new data"
-            file(self.filename, 'w').write(self.text)x+
+            file(self.filename, 'w').write(self.text)
 
     def get_post_info(self, document, key):
         '''Get stored information about a post.
