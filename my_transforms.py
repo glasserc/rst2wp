@@ -64,7 +64,7 @@ class ImageHandlerTransform(docutils.transforms.Transform):
         new_uri = wp.upload_file(filename, overwrite=True)
 
         app = self.document.settings.application
-        app.save_info(self.document, 'image '+ uri, attribute, new_uri, IMAGES_LOCATION, image=uri)
+        app.save_directive_info(self.document, 'image', uri, attribute, new_uri)
 
     def replace_with_new_image(self, uri, find_url_with='saved_as', details=None):
         app = self.document.settings.application
@@ -171,7 +171,7 @@ class ScaleImageTransform(ImageHandlerTransform):
         # Add a target to point to the full-size image we uploaded.
         if 'orig_target' not in self.startnode.details:
             # FIXME: is this right? Doesn't this change stuff in dotrc backends too?
-            app.save_info(self.document, 'image '+ uri, 'target', full_uri, IMAGES_LOCATION, image=uri)
+            app.save_directive_info(self.document, 'image', uri, 'target', full_uri)
             details['orig_target'] = full_uri
         details['target'] = details['orig_target']
 

@@ -28,8 +28,7 @@ class UploadDirective(Directive):
 
             document = self.state_machine.document
             app = document.settings.application
-            app.save_info(document, 'upload '+ filename, 'uploaded_form', new_url, IMAGES_LOCATION, image=filename,
-                          type='upload')
+            app.save_directive_info(document, 'upload ', filename, 'uploaded_form', new_url)
 
         node = nodes.container(classes=['uploaded-file'])
         size = self.file_size(filename)

@@ -335,48 +335,50 @@ class Rst2Wp(Application):
     def prompt(self, msg):
         return raw_input(msg)
 
-    def save_info(self, document, section, key, value, location=None,
-                  # FIXME: fugly hack
-                  image=None, type='image'):
-        "Usage: app.save_info(document, 'post ' + filename, 'id', '365')"
-        # N.B. The get_info, has_info, and save_info rely on the
-        # convention that if you're looking for some info on an image, you pass
-        # section = 'image http://www.example.com/image.jpg', key = 'saved_as',
-        # and (for save_info) image = 'http://www.example.com/image.jpg'.
-        # save_info uses the extra argument to locate the image in the source file.
-        # It also relies on the fact that document.settings.directive_uris['image'] is a dict
-        # of 'image http://www.example.com/image.jpg.form-200x200' => uploaded URL.
-        location = location or POSTS_LOCATION
+    def save_post_info(self, document, key, value):
         data_storage = self.data_storage
         if data_storage in ['both', 'dotrc']:
-            config = ConfigParser.SafeConfigParser()
-            filename = location()
-            if os.path.exists(filename):
-                with file(filename) as f:
-                    config.readfp(f)
-
-            if not config.has_section(section):
-                config.add_section(section)
-
-            config.set(section, key, value)
-            with file(filename, 'wb') as fp:
-                config.write(fp)
+            section = 'post ' + self.filename
+            self._save_config_info(section, key, value)
 
         if data_storage in ['both', 'file']:
-            if location == POSTS_LOCATION:
-                self.replace_field(document, key, value)
-            elif location == IMAGES_LOCATION:
-                if image:
-                    self.replace_directive(document, image, key, value, type=type)
-                    # Also update document.settings with the new info.
-                    document.settings.directive_uris['image'][section+'.'+key] = value
-            else:
-                raise ValueError, "couldn't save data in {location}".format(location=location)
+            self.replace_field(document, key, value)
 
+        self._save_post_updated()
+
+    def save_directive_info(self, document, directive, url, key, value):
+        data_storage = self.data_storage
+        if data_storage in ['both', 'dotrc']:
+            section = directive + ' ' + url
+            self._save_config_info(section, key, value, location=IMAGES_LOCATION)
+
+        if data_storage in ['both', 'file']:
+            self.replace_directive(document, directive, url, key, value)
+            # Also update document.settings with the new info.
+            document.settings.directive_uris[directive][url+'.'+key] = value
+
+        self._save_post_updated()
+
+    def _save_config_info(self, section, key, value, location=None):
+        location = location or POSTS_LOCATION
+        config = ConfigParser.SafeConfigParser()
+        filename = location()
+        if os.path.exists(filename):
+            with file(filename) as f:
+                config.readfp(f)
+
+        if not config.has_section(section):
+            config.add_section(section)
+
+        config.set(section, key, value)
+        with file(filename, 'wb') as fp:
+            config.write(fp)
+
+    def _save_post_updated(self):
         # Save immediately, so as to not forget the location of an uploaded image
         if self.should_save_file():
             print "Saving file with new data"
-            file(self.filename, 'w').write(self.text)
+            file(self.filename, 'w').write(self.text)x+
 
     def get_post_info(self, document, key):
         '''Get stored information about a post.
@@ -460,9 +462,9 @@ class Rst2Wp(Application):
         m = r.search(s)
         return m.end()
 
-    def replace_directive(self, document, uri, key, value, type='image'):
+    def replace_directive(self, document, directive, uri, key, value):
         '''Add a field to a URL-based directive.'''
-        r = re.compile('{name}::\s+({uri})'.format(name=type, uri = re.escape(uri)))
+        r = re.compile('{name}::\s+({uri})'.format(name=directive, uri = re.escape(uri)))
         lines = self.text.split('\n')
 
         for i in range(len(lines)):
@@ -608,15 +610,14 @@ class Rst2Wp(Application):
                 post_id = wp.new_page(post, publish)
             else:
                 post_id = wp.new_post(post, publish)
-            self.save_info(reader.document, "post " + self.filename,
-                           'id', str(post_id))
+            self.save_post_info(reader.document, 'id', str(post_id))
 
-        self.save_info(reader.document, "post " + self.filename,
-                       'title', fields['title'])
+        self.save_post_info(reader.document, 'title', fields['title'])
 
-        for image_uri in used_images:
-            self.save_info(reader.document, "image " + image_uri,
-                           'used in ' + str(post_id), fields['title'], location=IMAGES_LOCATION)
+        # No idea why I even wrote this in the first place.
+        # for image_uri in used_images:
+        #     self.save_directive_info(reader.document, "image", image_uri,
+        #                    'used in ' + str(post_id), fields['title'])
 
     def run_preview(self, output):
         body = output['body']
