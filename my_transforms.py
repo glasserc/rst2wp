@@ -180,9 +180,7 @@ class ScaleImageTransform(ImageHandlerTransform):
         image_name = 'form-{suffix}'.format(suffix=suffix)
 
         # If this attribute already exists, we don't need to re-generate or re-upload.
-        # FIXME: make this work for dotrc too
-        #if not app.has_info(self.document, 'image ' + uri, image_name, IMAGES_LOCATION, image=uri):
-        if image_name not in self.startnode.details:
+        if not app.has_directive_info(self.document, 'image', uri, image_name):
             # Get the filename we expect to find the source, and create
             # a similar filename for the thumbnail.
             target_filename = self.uri_filename(uri)

@@ -413,17 +413,23 @@ class Rst2Wp(Application):
         section = directive + ' ' + url
         return self.search_configs(location(), section, key)
 
-    def has_info(self, document, section, key, location=None):
-        location = location or POSTS_LOCATION
+    def has_post_info(self, document, key):
         if self.data_storage in ['both', 'file']:
-            if location == POSTS_LOCATION:
-                return (key in document.settings.bibliographic_fields)
-            elif location == IMAGES_LOCATION:
-                try:
-                    return document.settings.directive_uris['image'][section+'.'+key]
-                except KeyError:
-                    pass
+            return key in document.settings.bibliographic_fields
 
+        section = 'post ' + self.filename
+        return self._has_config_info(document, section, key)
+
+    def has_directive_info(self, document, directive, url, key):
+        if self.data_storage in ['both', 'file']:
+            try:
+                return document.settings.directive_uris[directive][url+'.'+key]
+            except KeyError:
+                pass
+
+        return self._has_config_info(document, section, key, location=IMAGES_LOCATION)
+
+    def _has_config_info(self, document, section, key, location=POSTS_LOCATION):
         class NO_DEFAULT:
             pass
 
@@ -580,7 +586,7 @@ class Rst2Wp(Application):
             publish = config.getboolean('config', 'publish_default')
         if publish == None: publish = False
 
-        if self.has_info(reader.document, "post " + self.filename, 'id'):
+        if self.has_post_info(reader.document, 'id'):
             post_id = self.get_post_info(reader.document, 'id')
             post_id = unicode(post_id)
             post = wp.get_post(post_id)

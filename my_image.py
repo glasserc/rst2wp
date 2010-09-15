@@ -47,11 +47,11 @@ class MyImageDirective(directives.images.Image):
         return result_nodes
 
     def change_uri(self, document, app, uri):
-        if 'saved_as' in self.options or app.has_info(document, 'image '+uri, 'saved_as', location=IMAGES_LOCATION):
+        if 'saved_as' in self.options or app.has_directive_info(document, 'image', uri, 'saved_as'):
             document.settings.used_images[uri] = True
             if 'saved_as' in self.options:
                 real_uri = self.options['saved_as']
-            elif app.has_info(document, 'image '+uri, 'saved_as', location=IMAGES_LOCATION):
+            elif app.has_directive_info(document, 'image', uri, 'saved_as'):
                 real_uri = app.get_directive_info(document, 'image', uri, 'saved_as')
             print "Using saved location for image:", real_uri
 
