@@ -429,7 +429,7 @@ class Rst2Wp(Application):
             except KeyError:
                 pass
 
-        return self._has_config_info(document, section, key, location=IMAGES_LOCATION)
+        return self._has_config_info(document, directive + ' ' + url, key, location=IMAGES_LOCATION)
 
     def _has_config_info(self, document, section, key, location=POSTS_LOCATION):
         class NO_DEFAULT:
