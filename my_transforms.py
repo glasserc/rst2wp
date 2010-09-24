@@ -185,6 +185,12 @@ class ScaleImageTransform(ImageHandlerTransform):
             # a similar filename for the thumbnail.
             target_filename = self.uri_filename(uri)
             dir = self.uploads_dir()
+
+            # FIXME: Holy lord, HACK.
+            body, ext = os.path.splitext(target_filename)
+            if os.path.exists(os.path.join(dir, body + '-rot90' + ext)):
+                target_filename = body + '-rot90' + ext
+
             orig_filename = os.path.join(dir, target_filename)
             new_filename = self.filename_insert_before_extension(orig_filename, suffix)
 
