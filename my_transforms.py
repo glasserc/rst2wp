@@ -188,8 +188,8 @@ class ScaleImageTransform(ImageHandlerTransform):
 
             # FIXME: Holy lord, HACK.
             body, ext = os.path.splitext(target_filename)
-            if os.path.exists(os.path.join(dir, body + '-rot90' + ext)):
-                target_filename = body + '-rot90' + ext
+            if os.path.exists(os.path.join(dir, body + '-rot270' + ext)):
+                target_filename = body + '-rot270' + ext
 
             orig_filename = os.path.join(dir, target_filename)
             new_filename = self.filename_insert_before_extension(orig_filename, suffix)
