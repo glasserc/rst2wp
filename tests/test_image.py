@@ -78,3 +78,22 @@ class TestImage(unittest.TestCase):
         images = self.find_images(html)
         self.assertEqual(len(images), 1)
         self.match_image(images[0], {'reference': None, 'src': 'http://foo/on/you'})
+
+    @mock.patch('os.path.exists')
+    @mock.patch('os.mkdir')
+    @mock.patch('urllib.urlretrieve')
+    def test_option_stored_rot90(self, os_path_exists, os_mkdir, urlretrieve):
+        text = """
+:title: Hello
+
+.. image:: /tmp/foo.jpg
+   :rotate: 90
+   :uploaded: http://foo/on/you
+   :uploaded-rot90: http://foo-90/on/you"""
+
+        output = self.mock_run(text)
+        html = output['output']
+
+        images = self.find_images(html)
+        self.assertEqual(len(images), 1)
+        self.match_image(images[0], {'reference': None, 'src': 'http://foo-90/on/you'})

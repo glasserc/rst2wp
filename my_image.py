@@ -150,7 +150,9 @@ class MyImageDirective(directives.images.Image):
                 self.document.settings.directive_uris['image'][self.uri + '.' + key] = self.options[key]
 
     def update_form(self, form, suffix):
-        return '-'.join([self.current_form, suffix])
+        if form:
+            return '-'.join([form, suffix])
+        return suffix
 
     def run_rotate(self):
         degrees = self.options['rotate']
