@@ -108,27 +108,63 @@ class MyImageDirective(directives.images.Image):
         return target_filename
 
     def run(self):
-        uri = directives.uri(self.arguments[0])
+        self.uri = directives.uri(self.arguments[0])
         self.document = self.state_machine.document
-        self.current_form = ''
-        self.current_uri = uri
-        self.current_filename = self.download_image(self.current_uri)
         self.process_parameters()
 
-        self.run_rotate()
-        self.run_scale()
-        self.upload()
+        self.compute_image()
+
         return directives.images.Image.run(self)
+
+    def compute_image(self):
+        desired_form = ''
+        if 'rotate' in self.options:
+            desired_form = self.update_form(desired_form, 'rot{0}'.format(self.options['rotate']))
+
+        if 'scale' in self.options:
+            desired_form = self.update_form(desired_form, 'scale{0}'.format(self.options['scale']))
+
+        if desired_form: desired_form = 'uploaded-'+desired_form
+        else: desired_form = 'uploaded'
+
+        if self.document.settings.application.has_directive_info('image', self.uri, desired_form):
+            self.arguments[0] = self.document.settings.application.get_directive_info('image', self.uri, desired_form)
+            return
+
+        self.current_form = ''
+        self.current_uri = None
+        self.current_filename = self.download_image(self.uri)
+
+        if 'rotate' in self.options:
+            self.run_rotate()
+
+        if 'scale' in self.options:
+            self.run_scale()
+        self.upload()
 
     def process_parameters(self):
         '''Store all the uploaded forms for this directive with canonical names in document.settings'''
         # FIXME: Canonicalization TBD
         for key in self.options:
             if key.startswith('form-') or key == 'saved_as' or key.startswith('uploaded'):
-                self.document.settings.directive_uris['image'][self.current_uri + '.' + key] = self.options[key]
+                self.document.settings.directive_uris['image'][self.uri + '.' + key] = self.options[key]
+
+    def update_form(self, form, suffix):
+        return '-'.join([self.current_form, suffix])
 
     def run_rotate(self):
-        pass
+        degrees = self.options['rotate']
+        suffix = 'rot{degrees}'.format(degrees=degrees)
+
+        new_filename = self.filename_insert_before_extension(self.current_filename, 'rot{0}'.format(degrees))
+        degrees = float(degrees)
+
+        image = Image.open(filename)
+        image = image.rotate(degrees)
+        image.save(new_filename)
+
+        self.current_filename = new_filename
+        self.current_form = self.update_form(self.current_form, suffix)
 
     def run_scale(self):
         pass

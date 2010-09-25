@@ -88,16 +88,6 @@ class DownloadImageTransform(ImageHandlerTransform):
 
         self.replace_with_new_image(uri, find_url_with='saved_as')
 
-    def rotate_image(self, filename):
-        degrees = self.startnode.details['rotate']
-        new_filename = self.filename_insert_before_extension(filename, 'rot{0}'.format(degrees))
-        degrees = float(degrees)
-
-        image = Image.open(filename)
-        image = image.rotate(degrees)
-        image.save(new_filename)
-        return new_filename
-
 
 
 class ScaleImageTransform(ImageHandlerTransform):
