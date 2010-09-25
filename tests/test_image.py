@@ -56,10 +56,7 @@ class TestImage(unittest.TestCase):
         return {'output': output['whole'], 'directive_uris': directive_uris,
                 'application': application}
 
-    @mock.patch('os.path.exists')
-    @mock.patch('os.mkdir')
-    @mock.patch('urllib.urlretrieve')
-    def test_option_store(self, os_path_exists, os_mkdir, urlretrieve):
+    def test_option_store(self):
         text = """
 :title: Hello
 
@@ -79,10 +76,7 @@ class TestImage(unittest.TestCase):
         self.assertEqual(len(images), 1)
         self.match_image(images[0], {'reference': None, 'src': 'http://foo/on/you'})
 
-    @mock.patch('os.path.exists')
-    @mock.patch('os.mkdir')
-    @mock.patch('urllib.urlretrieve')
-    def test_option_stored_rot90(self, os_path_exists, os_mkdir, urlretrieve):
+    def test_option_stored_rot90(self):
         text = """
 :title: Hello
 
