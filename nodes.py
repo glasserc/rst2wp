@@ -4,6 +4,7 @@
 import docutils.nodes
 import utils
 
+raw_input = __builtins__['raw_input']
 old_field_list = docutils.nodes.field_list
 
 class  rst2wp_field_list(old_field_list):
@@ -50,9 +51,13 @@ class  rst2wp_field_list(old_field_list):
         fields = self.document.settings.fields
         fields[key] = value
 
+        # Check if there is a wordpress_instance, and there is either
+        # no application, or an application with dont_check_tags ==
+        # False).
+        # i.e. check if it's possible and not forbidden.
         if getattr(self.document.settings, 'wordpress_instance', None) and \
-                hasattr(self.document.settings, 'application') and \
-                not self.document.settings.application.dont_check_tags:
+                (not hasattr(self.document.settings, 'application') or \
+                not self.document.settings.application.dont_check_tags):
             # Verify validity of tags/categories
             if key == 'tags':
                 self.verify_tags(value)
