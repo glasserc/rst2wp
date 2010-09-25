@@ -17,43 +17,7 @@ except ImportError:
 # is not. Neither does anything during a preview.
 class ImageHandlerTransform(docutils.transforms.Transform):
     '''Base class for transforms to come'''
-    @property
-    def save_uploads(self, *args, **kwargs):
-        if not hasattr(self, '_save_uploads'):
-            app = self.document.settings.application
-            self._save_uploads = app.config.has_option('config', 'save_uploads') and \
-                app.config.getboolean('config', 'save_uploads') == True
-        return self._save_uploads
 
-    def uri_filename(self, uri):
-        # FIXME: this might not work on non-Unix -- but who cares?
-        target_filename = os.path.split(uri)[1]
-        if '?' in target_filename:
-            target_filename = target_filename[:target_filename.index('?')]
-        if '.' not in target_filename:
-            target_filename = raw_input("Image specified by %s doesn't have a filename.\nWhat would you like this image to be named?\n> "%(uri,))
-
-        return target_filename
-
-    def uploads_dir(self):
-        app = self.document.settings.application
-        dir = TEMP_DIRECTORY
-        if self.save_uploads:
-            dir = os.path.join(os.path.dirname(app.filename), 'uploads')
-            try: os.mkdir(dir)
-            except OSError, e:
-                # Probably "file exists"
-                if e.errno != 17: raise
-
-        return dir
-
-    def cleanup_file(self, filename):
-        if not self.save_uploads and filename.startswith(TEMP_DIRECTORY):
-            TEMP_FILES.append(filename)
-
-    @property
-    def uri(self):
-        return self.startnode.details['uri']
 
     def upload_image(self, uri, filename, attribute='saved_as'):
         '''Upload ``filename`` as the replacement for ``uri`` in the document.
@@ -135,19 +99,6 @@ class DownloadImageTransform(ImageHandlerTransform):
         return new_filename
 
 
-    def download_image(self, uri):
-        app = self.document.settings.application
-
-        target_filename = self.uri_filename(uri)
-        dir = self.uploads_dir()
-
-        filename = os.path.join(dir, target_filename)
-        if not os.path.exists(filename):
-            print("Downloading {0}".format(uri))
-            filename, headers = urllib.urlretrieve(uri, os.path.join(dir, target_filename))
-
-        self.cleanup_file(filename)
-        return filename
 
 class ScaleImageTransform(ImageHandlerTransform):
     '''Creates a new image by scaling another image'''
