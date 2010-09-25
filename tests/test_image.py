@@ -21,7 +21,6 @@ class TestImage(unittest.TestCase):
         images = []
         img_re = re.compile('(<a([^>]+)>)?<img[^>]+>(</a>)?')
         for img in img_re.finditer(output):
-            print img.group(0)
             elem = xml.etree.cElementTree.XML(img.group(0))
             data = {'reference': None}
             if elem.tag == 'a':
@@ -48,6 +47,8 @@ class TestImage(unittest.TestCase):
         application.config.getboolean.side_effect = lambda section, key: key == 'save_uploads'
         application.has_directive_info = lambda directive, url, key: directive_uris.get(directive, {}).get(url+'.'+key)
         application.get_directive_info = lambda directive, url, key: directive_uris[directive][url+'.'+key]
+        application.save_directive_info.side_effect = \
+            lambda directive, url, key, val: directive_uris[directive].setdefault(url+'.'+key, val)
 
         wp = mock.Mock(wordpresslib.WordPressClient)
         wp.upload_file.side_effect = lambda filename, overwrite=True: "http://wordpress/"+os.path.basename(filename)
@@ -111,7 +112,7 @@ class TestImage(unittest.TestCase):
 
         images = self.find_images(html)
         self.assertEqual(len(images), 1)
-        self.match_image(images[0], {'reference': None, 'src': 'http://foo-scale0.25/on/you'})
+        self.match_image(images[0], {'reference': 'http://foo/on/you', 'src': 'http://foo-scale0.25/on/you'})
 
     def test_option_stored_rot90_scale025(self):
         text = """
@@ -131,8 +132,7 @@ class TestImage(unittest.TestCase):
 
         images = self.find_images(html)
         self.assertEqual(len(images), 1)
-        # FIXME: reference needs to point to uploaded-rot90
-        self.match_image(images[0], {'reference': None, 'src': 'http://foo-rot90-scale0.25/on/you'})
+        self.match_image(images[0], {'reference': 'http://foo-90/on/you', 'src': 'http://foo-rot90-scale0.25/on/you'})
 
 
     @mock.patch('Image.open')

@@ -133,6 +133,18 @@ class MyImageDirective(directives.images.Image):
 
         if self.document.settings.application.has_directive_info('image', self.uri, desired_form):
             self.arguments[0] = self.document.settings.application.get_directive_info('image', self.uri, desired_form)
+            if 'scale' in self.options and 'target' not in self.options:
+                # Link to non-scaled form.
+                # This could get super-complicated. We assume for
+                # simplicity here that the rotated version must exist
+                # if the rotated-and-scaled version exists.
+                non_scaled_form = ''
+                if 'rotate' in self.options:
+                    non_scaled_form = 'rot{0}'.format(self.options['rotate'])
+
+                non_scaled_form = self.form_to_attribute_name(non_scaled_form)
+                self.options['target'] = \
+                    self.document.settings.application.get_directive_info('image', self.uri, non_scaled_form)
             return
 
         self.current_form = ''
@@ -164,6 +176,8 @@ class MyImageDirective(directives.images.Image):
         return new_filename
 
     def run_rotate(self):
+        # N.B. doesn't upload previous version, since we don't want
+        # people to see it.
         degrees = self.options['rotate']
         suffix = 'rot{degrees}'.format(degrees=degrees)
 
@@ -206,9 +220,11 @@ class MyImageDirective(directives.images.Image):
         self.current_form = self.update_form(self.current_form, suffix)
 
     def upload(self):
-        self.current_uri = uploaded = self.document.settings.wordpress_instance.upload_file(self.current_filename)
-        self.arguments[0] = uploaded
         key = self.form_to_attribute_name(self.current_form)
-        self.document.settings.application.save_directive_info('image', self.uri, key, uploaded)
+        if not self.document.settings.application.has_directive_info('image', self.uri, key):
+            uploaded = self.document.settings.wordpress_instance.upload_file(self.current_filename)
+            self.document.settings.application.save_directive_info('image', self.uri, key, uploaded)
+
+        self.arguments[0] = self.current_uri = self.document.settings.application.get_directive_info('image', self.uri, key)
 
 directives.register_directive('image', MyImageDirective)
