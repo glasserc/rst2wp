@@ -14,6 +14,9 @@ class TestNodes(unittest.TestCase):
 :foo: - test1
       - test2
       - test3
+:category: default_category
+:tags: - tag1
+       - tag2
 
 This is a test."""
 
@@ -24,3 +27,5 @@ This is a test."""
 
         self.assertEqual(fields['title'], 'Hello')
         self.assertEqual(fields['foo'], ['test1', 'test2', 'test3'])
+        self.assertEqual(fields['tags'], ['tag1', 'tag2'])
+        self.assertEqual(fields['categories'], ['default_category'])

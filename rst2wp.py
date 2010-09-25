@@ -27,7 +27,9 @@ sys.path.insert(0, os.path.join(os.path.abspath(os.path.dirname(__file__)), "lib
 import wordpresslib
 import my_image # registers MyImageDirective
 import upload   # registers UploadDirective
+import nodes    # monkeypatches nodes.field_list
 from config import IMAGES_LOCATION, POSTS_LOCATION, TEMP_FILES
+
 
 class UsageError(Exception):
     @classmethod
@@ -52,53 +54,6 @@ class MyTranslator(docutils.writers.html4css1.HTMLTranslator):
         if title:
             # Hackishly insert the image title into the image tag
             self.body[-1] = image.replace('/>', 'title="%s" />'%self.attval(title))
-
-
-class BibliographicTransform(docutils.transforms.Transform):
-    '''Parses the crap out of the bibliographic fields in the document
-    and sticks them in document.settings.bibliographic_fields.'''
-    default_priority = 98
-    def __init__(self, *args, **kwargs):
-        docutils.transforms.Transform.__init__(self, *args, **kwargs)
-
-    def apply(self, **kwargs):
-        header = self.document[0]
-        if isinstance(header, nodes.field_list):
-            fields = self.get_header_as_dict(header)
-        else:
-            fields = {}
-        self.document.settings.bibliographic_fields = fields
-
-    def get_header_as_dict(self, header):
-        fields = {}
-        for field in header.children:
-            field_name, field_body = field.children
-
-            # field_name is a node with a Text child
-            assert len(field_name.children) == 1, "don't know how to handle"
-            assert isinstance(field_name.children[0], nodes.Text)
-            key = field_name.children[0].astext()
-
-            # field_body is a node with either a bulleted_list child, or
-            # a single Text child, or..?
-            if len(field_body.children) == 0:
-                fields[key] = None
-                continue
-
-            assert len(field_body.children) == 1, "don't know how to handle"
-            data = field_body.children[0]
-            if isinstance(data, nodes.bullet_list):
-                value = [node.astext() for node in data.children]
-            elif isinstance(data, nodes.Text):
-                value = data.astext()
-            elif isinstance(data, nodes.paragraph):
-                value = data.children[0].astext()
-            else:
-                raise TypeError, "don't know how to handle a %s in the header %s"%(
-                    data.__class__, key)
-            fields[key] = value
-
-        return fields
 
 class ValidityCheckerTransform(docutils.transforms.Transform):
     default_priority = 99
@@ -134,64 +89,8 @@ Set config.default_category to do this automatically.
 :categories: Uncategorized
 """)
 
-        print "Checking validity of categories/tags"
-        categories = fields.get('categories') or fields.get('category')
-        if categories == None:
-            fields['categories'] = categories = [app.config.get('config', 'default_category')]
-
         wp = self.document.settings.wordpress_instance
-        if not self.document.settings.application.dont_check_tags:
-            for cat in categories:
-                self.check_existing_category(wp, cat)
 
-        if 'tag' in fields:
-            fields['tags'] = fields.pop('tag')
-
-        if 'tags' in fields:
-            if not self.document.settings.application.dont_check_tags:
-                for tag in fields['tags']:
-                    self.check_existing_tag(wp, tag)
-        print "Tags/categories: OK"
-
-    def check_existing_tag(self, wp, tag):
-        if ',' in tag:
-            raise ValueError, """Cannot use tags with ',' in the name.
-
-WordPress will break tags at commas. If you really want a tag with a comma, add it via the web interface."""
-        if not wp.has_tag(tag):
-            tag = self.read_tag(tag)
-
-    def check_existing_category(self, wp, cat):
-        if not wp.has_category(cat):
-            cat = self.read_category(cat)
-
-    def read_base(self, name):
-        fmt = {'name': repr(str(name))}
-        slug = raw_input("Slug for {name} [auto-generate]: ".format(**fmt))
-        description = raw_input("Description for {name} [none]: ".format(**fmt))
-        return {'slug': slug, 'description': description, 'name': name}
-
-    def read_tag(self, tag):
-        fmt = {'tag': repr(str(tag))}
-        if ',' in tag:
-            raise ValueError, """Cannot create tag with ',' in the name.
-
-If you really want a tag with a comma in the name, create it via the web interface first."""
-
-        print "Post has non-existent tag {tag}. Ctrl-C to cancel.".format(**fmt)
-        print "rst2wp can create the tag automatically, but can't set description or slug via XML-RPC API. If you want to edit these things, log in to the blog!"
-        raw_input("Confirm creation? [yes] ")
-
-    def read_category(self, cat):
-        fmt = {'category': repr(str(cat))}
-        print "Post has non-existent category {category}. Ctrl-C to cancel.".format(**fmt)
-        raw_input("Confirm? [yes]")
-
-        data = self.read_base(cat)
-        parent_id = raw_input("Parent id for {category} [none]: ".format(**fmt))
-
-        c = wordpresslib.WordPressCategory(parent_id=parent_id, **data)
-        wp.new_category(c)
 
 
 class WordPressReader(standalone.Reader):
@@ -536,11 +435,18 @@ class Rst2Wp(Application):
 
         directive_uris = {'image': {}, 'upload': {}}
 
+        categories = [app.config.get('config', 'default_category')]
+        if not self.application.dont_check_tags:
+            nodes.field_list.check_existing_categories(categories)
+
         output = core.publish_parts(source=text, writer=writer,
                                     reader=reader,
                                     settings_overrides={
                 'wordpress_instance' : wp,
                 'application': self,
+                'fields': {
+                    'categories': categories
+                    },
                 'directive_uris': directive_uris,
                 'used_images': used_images,
                 # FIXME: probably a nicer way to do this

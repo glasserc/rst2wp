@@ -42,3 +42,7 @@ def replace_newlines(txt):
     # have to replace newlines there
     txt = txt[:start] + txt[start:].replace('\n', ' ')
     return txt
+
+def list_wrap(obj):
+    if isinstance(obj, list): return obj
+    return [obj]
