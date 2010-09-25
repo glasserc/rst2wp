@@ -6,10 +6,16 @@ import utils, validity
 
 old_field_list = docutils.nodes.field_list
 
-class  rst2wp_field_list(old_field_list):
-    # Catch when new fields are added, and parse them, and store them
+class rst2wp_field_list(old_field_list):
+    # Catch when new fields are added, and parse them, and store them.
+    def is_bibliographic_field_list(self):
+        # Unfortunately, field_lists are used for both bibliographic field
+        # lists, and directive option blocks.
+        return isinstance(self.parent, docutils.nodes.document)
+
     def append(self, child):
         old_field_list.append(self, child)
+        if not self.is_bibliographic_field_list(): return
 
         field_name, field_value = self.parse_field(child)
         if field_name == 'tag':
