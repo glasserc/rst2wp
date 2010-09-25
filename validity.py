@@ -18,20 +18,28 @@ class Validity():
 
 
     @classmethod
-    def verify_tags(cls, document, tags):
+    def maybe_verify_tags(cls, document, tags):
         if not cls.should_check(document): return
 
-        if not isinstance(tags, list): tags = [tags]
-        for tag in tags:
-            cls.check_existing_tag(document.settings.wordpress_instance, tag)
+        cls.verify_tags(document.settings.wordpress_instance, tags)
 
     @classmethod
-    def verify_categories(cls, document, categories):
+    def verify_tags(cls, wp, tags):
+        if not isinstance(tags, list): tags = [tags]
+        for tag in tags:
+            cls.check_existing_tag(wp, tag)
+
+    @classmethod
+    def maybe_verify_categories(cls, document, categories):
         if not cls.should_check(document): return
 
+        cls.verify_categories(document.settings.wordpress_instance, categories)
+
+    @classmethod
+    def verify_categories(cls, wp, categories):
         if not isinstance(categories, list): categories = [categories]
         for category in categories:
-            cls.check_existing_category(document.settings.wordpress_instance, category)
+            cls.check_existing_category(wp, category)
 
     @classmethod
     def check_existing_tag(cls, wp, tag):

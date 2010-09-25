@@ -52,9 +52,9 @@ class  rst2wp_field_list(old_field_list):
 
         # Verify validity of tags/categories
         if key == 'tags':
-            validity.Validity.verify_tags(self.document, value)
+            validity.Validity.maybe_verify_tags(self.document, value)
 
         if key == 'categories':
-            validity.Validity.verify_categories(self.document, value)
+            validity.Validity.maybe_verify_categories(self.document, value)
 
 docutils.nodes.field_list = rst2wp_field_list

@@ -431,7 +431,7 @@ class Rst2Wp(Application):
 
         categories = [self.config.get('config', 'default_category')]
         if not self.dont_check_tags:
-            validity.Validity.verify_categories(categories)
+            validity.Validity.verify_categories(wp, categories)
 
         output = core.publish_parts(source=text, writer=writer,
                                     reader=reader,
