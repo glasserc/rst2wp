@@ -226,6 +226,7 @@ class MyImageDirective(directives.images.Image):
                 self.arguments[0] = self.current_uri = os.path.join(os.getcwd(), self.current_filename)
                 return
             else:
+                print("Uploading {0} (for {1})".format(self.current_filename, self.uri))
                 uploaded = self.document.settings.wordpress_instance.upload_file(self.current_filename)
                 self.document.settings.application.save_directive_info(self.document, 'image', self.uri, key, uploaded)
 
