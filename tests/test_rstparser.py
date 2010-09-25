@@ -52,3 +52,25 @@ This is a test.'''
         wordpress_instance.has_tag.asssert_called_with("tag1")
         wordpress_instance.has_tag.asssert_called_with("tag2")
         assert raw_input.called
+
+    @mock.patch('nodes.raw_input')
+    def test_validity_existing(self, raw_input):
+        text = '''
+:tags: - tag1
+       - tag2
+
+This is a test.'''
+
+        fields = {}
+        wordpress_instance = mock.Mock(wordpresslib.WordPressClient)
+        wordpress_instance.has_tag.return_value = True
+
+        output = core.publish_parts(source=text,
+                                    settings_overrides = {
+                'fields': fields,
+                'wordpress_instance': wordpress_instance
+                })
+
+        wordpress_instance.has_tag.asssert_called_with("tag1")
+        wordpress_instance.has_tag.asssert_called_with("tag2")
+        assert not raw_input.called
