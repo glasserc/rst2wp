@@ -53,10 +53,6 @@ class ImageHandlerTransform(docutils.transforms.Transform):
             for child in self.startnode.parent:
                 image += child
 
-    def filename_insert_before_extension(self, filename, suffix):
-        head, ext = os.path.splitext(filename)
-        new_filename = "{head}-{suffix}{ext}".format(head=head, suffix=suffix, ext=ext)
-        return new_filename
 
 class DownloadImageTransform(ImageHandlerTransform):
     default_priority = 100

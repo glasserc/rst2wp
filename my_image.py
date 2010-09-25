@@ -1,5 +1,6 @@
 ## MyImageDirective: a replacement for the Image directive that
 ## insinuates transforms when necessary.
+import urllib
 import docutils.parsers.rst.directives.images
 from docutils import core, io, nodes, utils
 from docutils.parsers.rst import roles, directives, languages
@@ -8,6 +9,8 @@ from config import POSTS_LOCATION, IMAGES_LOCATION, TEMP_DIRECTORY
 
 from my_transforms import DownloadImageTransform, ScaleImageTransform
 import os.path
+
+import Image
 
 # Arguments starting with form-* are all OK.
 # Simple dictionary that accepts all those options.
@@ -72,10 +75,8 @@ class MyImageDirective(directives.images.Image):
         dir = TEMP_DIRECTORY
         if self.save_uploads:
             dir = os.path.join(os.path.dirname(app.filename), 'uploads')
-            try: os.mkdir(dir)
-            except OSError, e:
-                # Probably "file exists"
-                if e.errno != 17: raise
+            if not os.path.exists(dir):
+                os.mkdir(dir)
 
         return dir
 
@@ -116,6 +117,11 @@ class MyImageDirective(directives.images.Image):
 
         return directives.images.Image.run(self)
 
+    def form_to_attribute_name(self, desired_form):
+        if desired_form:
+            return 'uploaded-'+desired_form
+        return'uploaded'
+
     def compute_image(self):
         desired_form = ''
         if 'rotate' in self.options:
@@ -124,8 +130,7 @@ class MyImageDirective(directives.images.Image):
         if 'scale' in self.options:
             desired_form = self.update_form(desired_form, 'scale{0}'.format(self.options['scale']))
 
-        if desired_form: desired_form = 'uploaded-'+desired_form
-        else: desired_form = 'uploaded'
+        desired_form = self.form_to_attribute_name(desired_form)
 
         if self.document.settings.application.has_directive_info('image', self.uri, desired_form):
             self.arguments[0] = self.document.settings.application.get_directive_info('image', self.uri, desired_form)
@@ -154,6 +159,11 @@ class MyImageDirective(directives.images.Image):
             return '-'.join([form, suffix])
         return suffix
 
+    def filename_insert_before_extension(self, filename, suffix):
+        head, ext = os.path.splitext(filename)
+        new_filename = "{head}-{suffix}{ext}".format(head=head, suffix=suffix, ext=ext)
+        return new_filename
+
     def run_rotate(self):
         degrees = self.options['rotate']
         suffix = 'rot{degrees}'.format(degrees=degrees)
@@ -161,7 +171,7 @@ class MyImageDirective(directives.images.Image):
         new_filename = self.filename_insert_before_extension(self.current_filename, 'rot{0}'.format(degrees))
         degrees = float(degrees)
 
-        image = Image.open(filename)
+        image = Image.open(self.current_filename)
         image = image.rotate(degrees)
         image.save(new_filename)
 
@@ -172,7 +182,10 @@ class MyImageDirective(directives.images.Image):
         pass
 
     def upload(self):
-        pass
+        uploaded = self.document.settings.wordpress_instance.upload_file(self.current_filename)
+        self.arguments[0] = uploaded
+        key = self.form_to_attribute_name(self.current_form)
+        self.document.settings.application.save_directive_info('image', self.uri, key, uploaded)
 
     def later():
         #print 'Handling image directive:', uri, self.options

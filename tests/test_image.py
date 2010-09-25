@@ -1,7 +1,6 @@
 # Tests for my freaky custom image directive
 import re
 import os
-import Image
 import xml.etree.cElementTree
 import mock
 import wordpresslib
@@ -48,13 +47,17 @@ class TestImage(unittest.TestCase):
         application.has_directive_info = lambda directive, url, key: directive_uris.get(directive, {}).get(url+'.'+key)
         application.get_directive_info = lambda directive, url, key: directive_uris[directive][url+'.'+key]
 
+        wp = mock.Mock(wordpresslib.WordPressClient)
+        wp.upload_file.side_effect = lambda filename, overwrite=True: "http://wordpress/"+os.path.basename(filename)
+
         directive_uris = {'image': {}}
         output = core.publish_parts(source=text, writer_name='html4css1',
                                     settings_overrides = {'bibliographic_fields': {},
                                                           'application': application,
-                                                          'directive_uris': directive_uris})
+                                                          'directive_uris': directive_uris,
+                                                          'wordpress_instance': wp})
         return {'output': output['whole'], 'directive_uris': directive_uris,
-                'application': application}
+                'application': application, 'wordpress_instance': wp}
 
     def test_option_store(self):
         text = """
@@ -91,3 +94,36 @@ class TestImage(unittest.TestCase):
         images = self.find_images(html)
         self.assertEqual(len(images), 1)
         self.match_image(images[0], {'reference': None, 'src': 'http://foo-90/on/you'})
+
+    @mock.patch('Image.open')
+    @mock.patch('urllib.urlretrieve')
+    @mock.patch('os.mkdir')
+    @mock.patch('os.path.exists')
+    def test_rotate(self, os_path_exists, os_mkdir, urlretrieve, image_open):
+        text = """
+:title: Hello
+
+.. image:: /tmp/foo.jpg
+   :rotate: 90"""
+
+        os_path_exists.side_effect = lambda filename: filename != '/home/ethan/some/directory/uploads/foo.jpg'
+        urlretrieve.side_effect = lambda filename, target: (target, [])
+
+        output = self.mock_run(text)
+        html = output['output']
+        application = output['application']
+
+        #os_path_exists.assert_called_with('/home/ethan/some/directory/uploads')
+        assert not os_mkdir.called
+        urlretrieve.assert_called_with('/tmp/foo.jpg', '/home/ethan/some/directory/uploads/foo.jpg')
+        image_open.assert_called_with('/home/ethan/some/directory/uploads/foo.jpg')
+        image_open.return_value.rotate.assert_called_with(90)
+        image_open.return_value.rotate.return_value.\
+            save.assert_called_with('/home/ethan/some/directory/uploads/foo-rot90.jpg')
+
+        application.save_directive_info.assert_called_with('image', '/tmp/foo.jpg', 'uploaded-rot90',
+                                                           'http://wordpress/foo-rot90.jpg')
+
+        images = self.find_images(html)
+        self.assertEqual(len(images), 1)
+        self.match_image(images[0], {'reference': None, 'src': 'http://wordpress/foo-rot90.jpg'})
