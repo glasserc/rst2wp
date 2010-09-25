@@ -74,11 +74,7 @@ class ValidityCheckerTransform(docutils.transforms.Transform):
             _no_field("title empty", """
 - Please set a title, because otherwise rst2wp breaks horribly.""")
 
-        if 'category' in fields:
-            fields['categories'] = fields.pop('category')
-
-        if not fields.get('categories') and \
-                not app.config.has_option('config', 'default_category'):
+        if not fields.get('categories'):
             _no_field("No categories supplied", """
 WordPress requires at least one category.
 
@@ -88,8 +84,6 @@ Set config.default_category to do this automatically.
 
 :categories: Uncategorized
 """)
-
-        wp = self.document.settings.wordpress_instance
 
 
 
@@ -102,7 +96,6 @@ class WordPressReader(standalone.Reader):
         transforms = standalone.Reader.get_transforms(self)
         if self.preview: return transforms
 
-        transforms.insert(0, BibliographicTransform)
         transforms.insert(1, ValidityCheckerTransform)
         return transforms
 
