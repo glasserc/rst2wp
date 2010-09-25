@@ -131,8 +131,8 @@ class MyImageDirective(directives.images.Image):
 
         desired_form = self.form_to_attribute_name(desired_form)
 
-        if self.document.settings.application.has_directive_info('image', self.uri, desired_form):
-            self.arguments[0] = self.document.settings.application.get_directive_info('image', self.uri, desired_form)
+        if self.document.settings.application.has_directive_info(self.document, 'image', self.uri, desired_form):
+            self.arguments[0] = self.document.settings.application.get_directive_info(self.document, 'image', self.uri, desired_form)
             if 'scale' in self.options and 'target' not in self.options:
                 # Link to non-scaled form.
                 # This could get super-complicated. We assume for
@@ -144,7 +144,7 @@ class MyImageDirective(directives.images.Image):
 
                 non_scaled_form = self.form_to_attribute_name(non_scaled_form)
                 self.options['target'] = \
-                    self.document.settings.application.get_directive_info('image', self.uri, non_scaled_form)
+                    self.document.settings.application.get_directive_info(self.document, 'image', self.uri, non_scaled_form)
             return
 
         self.current_form = ''
@@ -221,10 +221,15 @@ class MyImageDirective(directives.images.Image):
 
     def upload(self):
         key = self.form_to_attribute_name(self.current_form)
-        if not self.document.settings.application.has_directive_info('image', self.uri, key):
-            uploaded = self.document.settings.wordpress_instance.upload_file(self.current_filename)
-            self.document.settings.application.save_directive_info('image', self.uri, key, uploaded)
+        if not self.document.settings.application.has_directive_info(self.document, 'image', self.uri, key):
+            if self.document.settings.application.preview:
+                self.arguments[0] = self.current_uri = os.path.join(os.getcwd(), self.current_filename)
+                return
+            else:
+                uploaded = self.document.settings.wordpress_instance.upload_file(self.current_filename)
+                self.document.settings.application.save_directive_info(self.document, 'image', self.uri, key, uploaded)
 
-        self.arguments[0] = self.current_uri = self.document.settings.application.get_directive_info('image', self.uri, key)
+        self.arguments[0] = self.current_uri = \
+            self.document.settings.application.get_directive_info(self.document, 'image', self.uri, key)
 
 directives.register_directive('image', MyImageDirective)

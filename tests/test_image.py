@@ -45,10 +45,10 @@ class TestImage(unittest.TestCase):
         application.filename = '/home/ethan/some/directory/test.rst'
         application.config.has_option.return_value = True
         application.config.getboolean.side_effect = lambda section, key: key == 'save_uploads'
-        application.has_directive_info = lambda directive, url, key: directive_uris.get(directive, {}).get(url+'.'+key)
-        application.get_directive_info = lambda directive, url, key: directive_uris[directive][url+'.'+key]
+        application.has_directive_info = lambda document, directive, url, key: directive_uris.get(directive, {}).get(url+'.'+key)
+        application.get_directive_info = lambda document, directive, url, key: directive_uris[directive][url+'.'+key]
         application.save_directive_info.side_effect = \
-            lambda directive, url, key, val: directive_uris[directive].setdefault(url+'.'+key, val)
+            lambda document, directive, url, key, val: directive_uris[directive].setdefault(url+'.'+key, val)
 
         wp = mock.Mock(wordpresslib.WordPressClient)
         wp.upload_file.side_effect = lambda filename, overwrite=True: "http://wordpress/"+os.path.basename(filename)
@@ -161,7 +161,8 @@ class TestImage(unittest.TestCase):
         image_open.return_value.rotate.return_value.\
             save.assert_called_with('/home/ethan/some/directory/uploads/foo-rot90.jpg')
 
-        application.save_directive_info.assert_called_with('image', '/tmp/foo.jpg', 'uploaded-rot90',
+        document = application.save_directive_info.call_args[0][0]
+        application.save_directive_info.assert_called_with(document, 'image', '/tmp/foo.jpg', 'uploaded-rot90',
                                                            'http://wordpress/foo-rot90.jpg')
 
         images = self.find_images(html)
@@ -207,9 +208,10 @@ class TestImage(unittest.TestCase):
         images[1].\
             save.assert_called_with('/home/ethan/some/directory/uploads/foo-rot90-scale0.25.jpg')
 
+        document = application.save_directive_info.call_args_list[0][0][0]
         self.assertEqual(application.save_directive_info.call_args_list, [
-                (('image', '/tmp/foo.jpg', 'uploaded-rot90', 'http://wordpress/foo-rot90.jpg'), {}),
-                (('image', '/tmp/foo.jpg', 'uploaded-rot90-scale0.25', 'http://wordpress/foo-rot90-scale0.25.jpg'), {})
+                ((document, 'image', '/tmp/foo.jpg', 'uploaded-rot90', 'http://wordpress/foo-rot90.jpg'), {}),
+                ((document, 'image', '/tmp/foo.jpg', 'uploaded-rot90-scale0.25', 'http://wordpress/foo-rot90-scale0.25.jpg'), {})
         ])
 
         images = self.find_images(html)

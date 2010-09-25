@@ -430,7 +430,7 @@ class Rst2Wp(Application):
         directive_uris = {'image': {}, 'upload': {}}
 
         categories = [self.config.get('config', 'default_category')]
-        if not self.dont_check_tags:
+        if not self.dont_check_tags and not self.preview:
             validity.Validity.verify_categories(wp, categories)
 
         output = core.publish_parts(source=text, writer=writer,
