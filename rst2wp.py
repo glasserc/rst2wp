@@ -28,6 +28,7 @@ import wordpresslib
 import my_image # registers MyImageDirective
 import upload   # registers UploadDirective
 import nodes    # monkeypatches nodes.field_list
+import validity
 from config import IMAGES_LOCATION, POSTS_LOCATION, TEMP_FILES
 
 
@@ -428,9 +429,9 @@ class Rst2Wp(Application):
 
         directive_uris = {'image': {}, 'upload': {}}
 
-        categories = [app.config.get('config', 'default_category')]
-        if not self.application.dont_check_tags:
-            nodes.field_list.check_existing_categories(categories)
+        categories = [self.config.get('config', 'default_category')]
+        if not self.dont_check_tags:
+            validity.Validity.verify_categories(categories)
 
         output = core.publish_parts(source=text, writer=writer,
                                     reader=reader,
