@@ -24,7 +24,7 @@ This is a test."""
         fields = {}
 
         output = core.publish_parts(source=text,
-                                    settings_overrides = {'fields': fields})
+                                    settings_overrides = {'bibliographic_fields': fields})
 
         self.assertEqual(fields['title'], 'Hello')
         self.assertEqual(fields['foo'], ['test1', 'test2', 'test3'])
@@ -45,7 +45,7 @@ This is a test.'''
 
         output = core.publish_parts(source=text,
                                     settings_overrides = {
-                'fields': fields,
+                'bibliographic_fields': fields,
                 'wordpress_instance': wordpress_instance
                 })
 
@@ -67,7 +67,7 @@ This is a test.'''
 
         output = core.publish_parts(source=text,
                                     settings_overrides = {
-                'fields': fields,
+                'bibliographic_fields': fields,
                 'wordpress_instance': wordpress_instance
                 })
 

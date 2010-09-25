@@ -438,7 +438,7 @@ class Rst2Wp(Application):
                                     settings_overrides={
                 'wordpress_instance' : wp,
                 'application': self,
-                'fields': {
+                'bibliographic_fields': {
                     'categories': categories
                     },
                 'directive_uris': directive_uris,

@@ -47,7 +47,7 @@ class  rst2wp_field_list(old_field_list):
         return key, value
 
     def store_field(self, key, value):
-        fields = self.document.settings.fields
+        fields = self.document.settings.bibliographic_fields
         fields[key] = value
 
         # Verify validity of tags/categories
