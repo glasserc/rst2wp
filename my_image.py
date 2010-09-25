@@ -7,7 +7,6 @@ from docutils.parsers.rst import roles, directives, languages
 
 from config import POSTS_LOCATION, IMAGES_LOCATION, TEMP_DIRECTORY
 
-from my_transforms import DownloadImageTransform, ScaleImageTransform
 import os.path
 
 import Image
@@ -211,69 +210,5 @@ class MyImageDirective(directives.images.Image):
         self.arguments[0] = uploaded
         key = self.form_to_attribute_name(self.current_form)
         self.document.settings.application.save_directive_info('image', self.uri, key, uploaded)
-
-    def later():
-        #print 'Handling image directive:', uri, self.options
-        # directives.images.Image.run eats target, so we store it here
-        if 'target' in self.options:
-            self.options['orig_target'] = self.options['target']
-
-        # Store the "real" URI for this image -- the argument given in the file.
-        self.options['orig_uri'] = uri
-        app = document.settings.application
-
-        # Insert transform for DownloadImageTransform if needed -- or use saved_as
-        result_nodes = self.change_uri(document, app, uri)
-
-        # Insert transform for scaling
-        self.handle_scaling(document, app, result_nodes)
-
-        return result_nodes
-
-    def change_uri(self, document, app, uri):
-        if 'saved_as' in self.options or app.has_directive_info(document, 'image', uri, 'saved_as'):
-            document.settings.used_images[uri] = True
-            if 'saved_as' in self.options:
-                real_uri = self.options['saved_as']
-            elif app.has_directive_info(document, 'image', uri, 'saved_as'):
-                real_uri = app.get_directive_info(document, 'image', uri, 'saved_as')
-            print "Using saved location for image:", real_uri
-
-            self.arguments[0] = real_uri
-            result_nodes = directives.images.Image.run(self)
-
-        else:
-            # Call the super here to update options, etc.
-            result_nodes = directives.images.Image.run(self)
-            self.insert_pending(document, result_nodes, DownloadImageTransform)
-
-        return result_nodes
-
-    def insert_pending(self, document, result_nodes, pending_class):
-        """Insert a pending"""
-        pending = nodes.pending(pending_class, rawsource=self.block_text)
-        pending.details.update(self.options)
-        document.note_pending(pending)
-
-        # This could be any inline element, but we use the image we'd
-        # normally have to look coherent.
-        last_node = result_nodes[-1]
-        if isinstance(last_node, nodes.reference):
-            # This happens when there's a :target:
-            last_node = last_node.children[0]
-
-        # Embed the pending in the image node
-        last_node += pending
-        # print("Adding pending of {pending_class}, {pending_id} to node {id}: {node}".format(
-        #         pending_class=pending_class, pending_id=id(pending), id=id(last_node), node=last_node))
-
-    def handle_scaling(self, document, app, nodes):
-        """Handle scaling an image by inserting a ScaleImageTransform, if necessary."""
-        if 'scale' in self.options:
-            # FIXME: this is just a sanity check for now because scale replaces target
-            # if 'orig_target' in self.options:
-            #     raise ValueError("Cannot have both scale and target on image {uri}".format(
-            #             uri=directives.uri(self.arguments[0])))
-            self.insert_pending(document, nodes, ScaleImageTransform)
 
 directives.register_directive('image', MyImageDirective)

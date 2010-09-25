@@ -131,6 +131,7 @@ class TestImage(unittest.TestCase):
 
         images = self.find_images(html)
         self.assertEqual(len(images), 1)
+        # FIXME: reference needs to point to uploaded-rot90
         self.match_image(images[0], {'reference': None, 'src': 'http://foo-rot90-scale0.25/on/you'})
 
 
