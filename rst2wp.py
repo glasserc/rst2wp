@@ -484,6 +484,7 @@ class Rst2Wp(Application):
         if publish == None:
             publish = fields.get('publish', None)
             if publish == 'yes': publish = True
+            if publish == 'no': publish = False
         if publish == None and config.has_option('config', 'publish_default'):
             publish = config.getboolean('config', 'publish_default')
         if publish == None: publish = False
