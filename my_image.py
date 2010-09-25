@@ -168,7 +168,7 @@ class MyImageDirective(directives.images.Image):
         degrees = self.options['rotate']
         suffix = 'rot{degrees}'.format(degrees=degrees)
 
-        new_filename = self.filename_insert_before_extension(self.current_filename, 'rot{0}'.format(degrees))
+        new_filename = self.filename_insert_before_extension(self.current_filename, suffix)
         degrees = float(degrees)
 
         image = Image.open(self.current_filename)
@@ -179,10 +179,35 @@ class MyImageDirective(directives.images.Image):
         self.current_form = self.update_form(self.current_form, suffix)
 
     def run_scale(self):
-        pass
+        # Remove option for 'scale' because html4css1 writer tries to
+        # do its own scaling on top of ours if it's present.
+        scale = self.options.pop('scale')
+
+        suffix = 'scale{scale}'.format(scale=scale)
+        new_filename = self.filename_insert_before_extension(self.current_filename, suffix)
+
+        self.upload()
+        self.options['target'] = self.current_uri
+
+        image = Image.open(self.current_filename)
+        if scale:
+            dimensions = factor = None
+            try:
+                factor = float(scale)
+                dimensions = image.size
+                dimensions = int(dimensions[0]*factor), int(dimensions[1]*factor)
+            except ValueError, e:
+                dimensions = scale.split('x')
+                dimensions = int(dimensions[0]), int(dimensions[1])
+
+        image.thumbnail(dimensions, Image.ANTIALIAS)
+        image.save(new_filename)
+
+        self.current_filename = new_filename
+        self.current_form = self.update_form(self.current_form, suffix)
 
     def upload(self):
-        uploaded = self.document.settings.wordpress_instance.upload_file(self.current_filename)
+        self.current_uri = uploaded = self.document.settings.wordpress_instance.upload_file(self.current_filename)
         self.arguments[0] = uploaded
         key = self.form_to_attribute_name(self.current_form)
         self.document.settings.application.save_directive_info('image', self.uri, key, uploaded)

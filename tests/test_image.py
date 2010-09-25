@@ -2,6 +2,7 @@
 import re
 import os
 import xml.etree.cElementTree
+import Image
 import mock
 import wordpresslib
 try:
@@ -18,8 +19,9 @@ import rst2wp
 class TestImage(unittest.TestCase):
     def find_images(self, output):
         images = []
-        img_re = re.compile('(<a href="([^>]+)">)?<img[^>]+>(</a>)?')
+        img_re = re.compile('(<a([^>]+)>)?<img[^>]+>(</a>)?')
         for img in img_re.finditer(output):
+            print img.group(0)
             elem = xml.etree.cElementTree.XML(img.group(0))
             data = {'reference': None}
             if elem.tag == 'a':
@@ -164,3 +166,54 @@ class TestImage(unittest.TestCase):
         images = self.find_images(html)
         self.assertEqual(len(images), 1)
         self.match_image(images[0], {'reference': None, 'src': 'http://wordpress/foo-rot90.jpg'})
+
+    @mock.patch('Image.open')
+    @mock.patch('urllib.urlretrieve')
+    @mock.patch('os.mkdir')
+    @mock.patch('os.path.exists')
+    def test_rotate_and_scale(self, os_path_exists, os_mkdir, urlretrieve, image_open):
+        text = """
+:title: Hello
+
+.. image:: /tmp/foo.jpg
+   :scale: 0.25
+   :rotate: 90
+"""
+
+        os_path_exists.side_effect = lambda filename: not filename.startswith('/home/ethan/some/directory/uploads/foo')
+        urlretrieve.side_effect = lambda filename, target: (target, [])
+
+        images = [mock.Mock(), mock.Mock()]
+        images[1].size = (4000, 3000)
+        images_iter = iter(images)
+
+        image_open.side_effect = lambda filename: images_iter.next()
+
+        output = self.mock_run(text)
+        html = output['output']
+        application = output['application']
+
+        #os_path_exists.assert_called_with('/home/ethan/some/directory/uploads')
+        assert not os_mkdir.called
+        urlretrieve.assert_called_with('/tmp/foo.jpg', '/home/ethan/some/directory/uploads/foo.jpg')
+        self.assertEqual(image_open.call_args_list, [(('/home/ethan/some/directory/uploads/foo.jpg',), {}),
+                                                     (('/home/ethan/some/directory/uploads/foo-rot90.jpg',), {})])
+        images[0].rotate.assert_called_with(90)
+        images[0].rotate.return_value.\
+            save.assert_called_with('/home/ethan/some/directory/uploads/foo-rot90.jpg')
+
+        images[1].thumbnail.assert_called_with((1000, 750), Image.ANTIALIAS)
+        images[1].\
+            save.assert_called_with('/home/ethan/some/directory/uploads/foo-rot90-scale0.25.jpg')
+
+        self.assertEqual(application.save_directive_info.call_args_list, [
+                (('image', '/tmp/foo.jpg', 'uploaded-rot90', 'http://wordpress/foo-rot90.jpg'), {}),
+                (('image', '/tmp/foo.jpg', 'uploaded-rot90-scale0.25', 'http://wordpress/foo-rot90-scale0.25.jpg'), {})
+        ])
+
+        images = self.find_images(html)
+        self.assertEqual(len(images), 1)
+        self.match_image(images[0], {
+                'reference': 'http://wordpress/foo-rot90.jpg',
+                'src': 'http://wordpress/foo-rot90-scale0.25.jpg'
+                })
