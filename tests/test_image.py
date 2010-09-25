@@ -95,6 +95,43 @@ class TestImage(unittest.TestCase):
         self.assertEqual(len(images), 1)
         self.match_image(images[0], {'reference': None, 'src': 'http://foo-90/on/you'})
 
+    def test_option_stored_scale025(self):
+        text = """
+:title: Hello
+
+.. image:: /tmp/foo.jpg
+   :scale: 0.25
+   :uploaded: http://foo/on/you
+   :uploaded-scale0.25: http://foo-scale0.25/on/you"""
+
+        output = self.mock_run(text)
+        html = output['output']
+
+        images = self.find_images(html)
+        self.assertEqual(len(images), 1)
+        self.match_image(images[0], {'reference': None, 'src': 'http://foo-scale0.25/on/you'})
+
+    def test_option_stored_rot90_scale025(self):
+        text = """
+:title: Hello
+
+.. image:: /tmp/foo.jpg
+   :rotate: 90
+   :scale: 0.25
+   :uploaded: http://foo/on/you
+   :uploaded-rot90: http://foo-90/on/you
+   :uploaded-scale0.25: http://foo-scale0.25/on/you
+   :uploaded-scale0.50: http://foo-scale0.25/on/you
+   :uploaded-rot90-scale0.25: http://foo-rot90-scale0.25/on/you"""
+
+        output = self.mock_run(text)
+        html = output['output']
+
+        images = self.find_images(html)
+        self.assertEqual(len(images), 1)
+        self.match_image(images[0], {'reference': None, 'src': 'http://foo-rot90-scale0.25/on/you'})
+
+
     @mock.patch('Image.open')
     @mock.patch('urllib.urlretrieve')
     @mock.patch('os.mkdir')
