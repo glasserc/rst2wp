@@ -1,6 +1,7 @@
 ## MyImageDirective: a replacement for the Image directive that
 ## insinuates transforms when necessary.
 import urllib
+import urlparse
 import docutils.parsers.rst.directives.images
 from docutils import core, io, nodes, utils
 from docutils.parsers.rst import roles, directives, languages
@@ -98,10 +99,9 @@ class MyImageDirective(directives.images.Image):
         return filename
 
     def uri_filename(self, uri):
-        # FIXME: this might not work on non-Unix -- but who cares?
-        target_filename = os.path.split(uri)[1]
-        if '?' in target_filename:
-            target_filename = target_filename[:target_filename.index('?')]
+        tuple = urlparse.urlparse(uri)
+        path = tuple.path
+        target_filename = path.split('/')[-1]
         if '.' not in target_filename:
             target_filename = raw_input("Image specified by %s doesn't have a filename.\nWhat would you like this image to be named?\n> "%(uri,))
 
