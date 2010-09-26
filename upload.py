@@ -44,11 +44,12 @@ class UploadDirective(DownloadDirective):
         reference += nodes.Text(basename)
 
         para = nodes.paragraph()
-        para.extend([reference, nodes.Text(" ({type}, {size})".format(name=filename, type=type, size=size))])
+        para.extend([nodes.Text("Uploaded: "), reference,
+                     nodes.Text(" ({type}, {size})".format(name=filename, type=type, size=size))])
 
         node += para
 
-        return [node]
+        return [node, nodes.container(classes=['clear'])]
 
     def upload_file(self, filename):
         if not self.state_machine.document.settings.wordpress_instance: return filename
