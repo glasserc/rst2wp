@@ -1,17 +1,17 @@
 import docutils.parsers.rst.directives
 from docutils import core, io, nodes, utils
 from docutils.parsers.rst import roles, directives, languages
-from docutils.parsers.rst import Directive
 from config import IMAGES_LOCATION
 import magic  # needed to guess file types
+from directive import DownloadDirective
 
 
-class UploadDirective(Directive):
+class UploadDirective(DownloadDirective):
     required_arguments = 1
     optional_arguments = 0
     final_argument_whitespace = True
     option_spec = {
-        'uploaded_form': directives.unchanged,
+        'uploaded': directives.unchanged,
         }
 
     # def __init__(self, *args, **kwargs):
@@ -21,24 +21,28 @@ class UploadDirective(Directive):
     def run(self):
         # FIXME: URL?
         filename = self.arguments[0]
+        basename = self.uri_filename(filename)
         type = self.guess_type(filename)
-        new_url = self.options.get('uploaded_form')
+        new_url = self.options.get('uploaded')
         if not new_url:
             new_url = self.upload_file(filename)
 
             document = self.state_machine.document
             app = document.settings.application
-            app.save_directive_info(document, 'upload', filename, 'uploaded_form', new_url)
+            app.save_directive_info(document, 'upload', filename, 'uploaded', new_url)
 
         node = nodes.container(classes=['uploaded-file'])
         size = self.file_size(filename)
         type = self.guess_type(filename)
 
-        node += nodes.paragraph('', nodes.Text("{name} ({type}, {size})".format(name=filename, type=type, size=size)))
+        reference = nodes.reference('', basename, newuri=new_url)
+
+        node += nodes.paragraph('', reference, nodes.Text("({type}, {size})".format(name=filename, type=type, size=size)))
 
         return [node]
 
     def upload_file(self, filename):
+        if not self.state_machine.document.settings.wordpress_instance: return filename
         self.wp = self.state_machine.document.settings.wordpress_instance
         return self.wp.upload_file(filename)
 

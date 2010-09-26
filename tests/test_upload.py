@@ -11,18 +11,18 @@ class TestUpload(unittest.TestCase):
         self.up = upload.UploadDirective('upload', [filename], {}, None, 'lineno', 'content_offset', '.. upload::', 'state', self.state_machine)
 
     def test_upload(self):
-        self.create_directive('/path/to/file')
-        self.assertEqual(self.up.arguments, ['/path/to/file'])
+        self.create_directive('/path/to/file.odf')
+        self.assertEqual(self.up.arguments, ['/path/to/file.odf'])
 
         output = self.up.run()
 
         assert self.state_machine.document.settings.wordpress_instance.upload_file.called
         self.assertEqual(self.state_machine.document.settings.wordpress_instance.upload_file.call_args_list,
-                         [(('/path/to/file',), {})])
+                         [(('/path/to/file.odf',), {})])
 
     def test_no_upload(self):
-        self.create_directive('/path/to/file')
-        self.up.options['uploaded_form'] = 'http://example.com/already/exists'
+        self.create_directive('/path/to/file.odf')
+        self.up.options['uploaded'] = 'http://example.com/already/exists'
 
         output = self.up.run()
         self.assertFalse(self.state_machine.document.settings.wordpress_instance.upload_file.called)
