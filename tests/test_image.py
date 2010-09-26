@@ -114,6 +114,22 @@ class TestImage(unittest.TestCase):
         self.assertEqual(len(images), 1)
         self.match_image(images[0], {'reference': 'http://foo/on/you', 'src': 'http://foo-scale0.25/on/you'})
 
+    def test_option_backwards_scale025(self):
+        text = """
+:title: Hello
+
+.. image:: /tmp/foo.jpg
+   :scale: 0.25
+   :saved_as: http://foo/on/you
+   :form-0.25: http://foo-scale0.25/on/you"""
+
+        output = self.mock_run(text)
+        html = output['output']
+
+        images = self.find_images(html)
+        self.assertEqual(len(images), 1)
+        self.match_image(images[0], {'reference': 'http://foo/on/you', 'src': 'http://foo-scale0.25/on/you'})
+
     def test_option_stored_rot90_scale025(self):
         text = """
 :title: Hello

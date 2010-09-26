@@ -160,10 +160,11 @@ class MyImageDirective(directives.images.Image):
 
     def process_parameters(self):
         '''Store all the uploaded forms for this directive with canonical names in document.settings'''
-        # FIXME: Canonicalization TBD
-        for key in self.options:
-            if key.startswith('form-') or key == 'saved_as' or key.startswith('uploaded'):
-                self.document.settings.directive_uris['image'][self.uri + '.' + key] = self.options[key]
+        for key, value in self.options.items():
+            if key == 'saved_as': key = 'uploaded'
+            if key.startswith('form-'): key = key.replace('form-', 'uploaded-scale')
+            if key.startswith('uploaded'):
+                self.document.settings.directive_uris['image'][self.uri + '.' + key] = value
 
     def update_form(self, form, suffix):
         if form:
