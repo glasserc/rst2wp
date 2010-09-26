@@ -222,7 +222,7 @@ class MyImageDirective(directives.images.Image):
     def upload(self):
         key = self.form_to_attribute_name(self.current_form)
         if not self.document.settings.application.has_directive_info(self.document, 'image', self.uri, key):
-            if self.document.settings.application.preview:
+            if getattr(self.document.settings.application, 'preview', None):
                 self.arguments[0] = self.current_uri = os.path.join(os.getcwd(), self.current_filename)
                 return
             else:
