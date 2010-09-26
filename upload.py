@@ -29,15 +29,20 @@ class UploadDirective(DownloadDirective):
 
             document = self.state_machine.document
             app = document.settings.application
-            app.save_directive_info(document, 'upload', filename, 'uploaded', new_url)
+            if not getattr(app, 'preview', None):
+                app.save_directive_info(document, 'upload', filename, 'uploaded', new_url)
 
-        node = nodes.container(classes=['uploaded-file'])
+        node = nodes.container(classes=['wp-caption'])
         size = self.file_size(filename)
         type = self.guess_type(filename)
 
-        reference = nodes.reference('', basename, newuri=new_url)
+        reference = nodes.reference(refuri=new_url)
+        reference += nodes.Text(basename)
 
-        node += nodes.paragraph('', reference, nodes.Text("({type}, {size})".format(name=filename, type=type, size=size)))
+        para = nodes.paragraph()
+        para.extend([reference, nodes.Text(" ({type}, {size})".format(name=filename, type=type, size=size))])
+
+        node += para
 
         return [node]
 
