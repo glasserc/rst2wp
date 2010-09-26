@@ -1,11 +1,12 @@
 import os
 import docutils.parsers.rst.directives
-from docutils import core, io, nodes, utils
+from docutils import core, io, nodes
 from docutils.parsers.rst import roles, directives, languages
 from config import IMAGES_LOCATION
 import magic  # needed to guess file types
 from directive import DownloadDirective
 
+import utils
 
 class UploadDirective(DownloadDirective):
     required_arguments = 1
@@ -55,7 +56,7 @@ class UploadDirective(DownloadDirective):
         return self.wp.upload_file(filename)
 
     def file_size(self, filename):
-        return os.stat(filename).st_size
+        return utils.approximate_size(os.stat(filename).st_size)
 
     def guess_type(self, filename):
         m = magic.open(magic.MAGIC_NONE)
