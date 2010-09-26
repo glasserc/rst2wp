@@ -1,3 +1,4 @@
+import os
 import docutils.parsers.rst.directives
 from docutils import core, io, nodes, utils
 from docutils.parsers.rst import roles, directives, languages
@@ -20,19 +21,21 @@ class UploadDirective(DownloadDirective):
 
     def run(self):
         # FIXME: URL?
-        filename = self.arguments[0]
+        uri = self.arguments[0]
+        self.document = self.state_machine.document
+        filename = self.download_image(uri)
         basename = self.uri_filename(filename)
         type = self.guess_type(filename)
         new_url = self.options.get('uploaded')
         if not new_url:
             new_url = self.upload_file(filename)
 
-            document = self.state_machine.document
+            document = self.document
             app = document.settings.application
             if not getattr(app, 'preview', None):
-                app.save_directive_info(document, 'upload', filename, 'uploaded', new_url)
+                app.save_directive_info(document, 'upload', uri, 'uploaded', new_url)
 
-        node = nodes.container(classes=['wp-caption'])
+        node = nodes.container(classes=['wp-caption', 'alignleft'])
         size = self.file_size(filename)
         type = self.guess_type(filename)
 
@@ -52,7 +55,7 @@ class UploadDirective(DownloadDirective):
         return self.wp.upload_file(filename)
 
     def file_size(self, filename):
-        return 1024
+        return os.stat(filename).st_size
 
     def guess_type(self, filename):
         m = magic.open(magic.MAGIC_NONE)
