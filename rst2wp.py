@@ -7,6 +7,9 @@ See the README for more details.
 # FIXME: robust against missing configuration keys
 # FIXME: prompt for a good filename/extension for unknown weird files
 # FIXME: could use fields['date'] for publish date
+# FIXME: if xmlrpc breaks, try to provide a useful error message
+# FIXME: .. figure:: directive
+# FIXME: progress meter on uploading images/files
 
 import re
 import argparse
