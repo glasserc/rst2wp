@@ -56,4 +56,4 @@ class DownloadDirective(Directive):
         if '.' not in target_filename:
             target_filename = raw_input("Image specified by %s doesn't have a filename.\nWhat would you like this image to be named?\n> "%(uri,))
 
-        return target_filename
+        return urllib.unquote(target_filename)
