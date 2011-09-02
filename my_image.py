@@ -1,5 +1,7 @@
 ## MyImageDirective: a replacement for the Image directive that
 ## insinuates transforms when necessary.
+import subprocess
+
 import docutils.parsers.rst.directives.images
 from docutils import core, io, nodes, utils
 from docutils.parsers.rst import roles, directives, languages
@@ -98,6 +100,8 @@ class MyImageDirective(directives.images.Image, DownloadDirective):
         self.current_uri = None
         self.current_filename = self.download_image(self.uri)
 
+        self.run_exiftran()
+
         if 'rotate' in self.options:
             self.run_rotate()
 
@@ -122,6 +126,11 @@ class MyImageDirective(directives.images.Image, DownloadDirective):
         head, ext = os.path.splitext(filename)
         new_filename = "{head}-{suffix}{ext}".format(head=head, suffix=suffix, ext=ext)
         return new_filename
+
+    def run_exiftran(self):
+        # Easiest way to get EXIF-rotation images to work when scaled
+        # down.
+        subprocess.check_call(["exiftran", "-a", self.current_filename, '-i'])
 
     def run_rotate(self):
         # N.B. doesn't upload previous version, since we don't want
