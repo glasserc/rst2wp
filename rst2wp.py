@@ -306,7 +306,7 @@ class Rst2Wp(Application):
             except KeyError:
                 pass
             if self.data_storage == 'file':
-                raise ValueError, "uh oh.. don't know what the image URI should be for {uri}".format(uri=section)
+                raise ValueError, "uh oh.. don't know what the image URI should be for {uri}".format(uri=url)
 
         section = directive + ' ' + url
         return self.search_configs(location(), section, key)
