@@ -130,6 +130,7 @@ class MyImageDirective(directives.images.Image, DownloadDirective):
     def run_exiftran(self):
         # Easiest way to get EXIF-rotation images to work when scaled
         # down.
+        if not self.current_filename.endswith('.jpg'): return
         subprocess.check_call(["exiftran", "-a", self.current_filename, '-i'])
 
     def run_rotate(self):
