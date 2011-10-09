@@ -147,3 +147,14 @@ Because I like ReStructuredText.
 Some people like Markdown. You can tell because they write about functions like gtk\ *window*\ new. Markdown started as a giant ball of regular expressions to create HTML and it hasn't changed much. It has grown extensions to address some shortcomings, but it isn't very extensible.
 
 Additionally, I like the docutils codebase a lot -- it makes the kinds of customizations I made here very easy.
+
+Notes on changing Wordpress's themes
+====================================
+
+Some CSS styles you might want to drop into your theme's style.css.
+
+::
+
+    .line {
+        min-height: 1em;
+    }
