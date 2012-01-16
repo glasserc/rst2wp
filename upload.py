@@ -53,6 +53,7 @@ class UploadDirective(DownloadDirective):
 
     def upload_file(self, filename):
         if not self.state_machine.document.settings.wordpress_instance: return filename
+        print("Uploading {0}".format(filename.encode('utf-8')))
         self.wp = self.state_machine.document.settings.wordpress_instance
         return self.wp.upload_file(filename)
 
@@ -62,7 +63,7 @@ class UploadDirective(DownloadDirective):
     def guess_type(self, filename):
         m = magic.open(magic.MAGIC_NONE)
         m.load()
-        type = m.file(filename)
+        type = m.file(filename.encode('utf-8'))
         m.close()
         return type
 

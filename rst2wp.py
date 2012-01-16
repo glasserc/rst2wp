@@ -360,14 +360,14 @@ class Rst2Wp(Application):
 
     def replace_directive(self, document, directive, uri, key, value):
         '''Add a field to a URL-based directive.'''
-        r = re.compile('{name}::\s+({uri})'.format(name=directive, uri = re.escape(uri)))
+        r = re.compile('{name}::\s+({uri})'.format(name=directive, uri = re.escape(uri.encode('utf-8'))))
         lines = self.text.split('\n')
 
         for i in range(len(lines)):
             if r.search(lines[i]):
                 n = self.get_indent(lines[i])
                 # FIXME: check if it's already there
-                lines.insert(i+1, ((n+3)*' ')+':{key}: {value}'.format(key=key, value=value))
+                lines.insert(i+1, ((n+3)*' ')+':{key}: {value}'.format(key=key, value=value.encode('utf-8')))
 
         self.text = '\n'.join(lines)
 

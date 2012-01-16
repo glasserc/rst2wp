@@ -21,6 +21,11 @@ Features
   the file. Many
 - Configuration by default goes in ``$HOME/.config/rst2wp/``.
 
+Shortcomings
+============
+
+- Unicode filenames and other stuff haven't really been thought through.  I just sprinkled some .encode('utf-8') calls here and there and things seem to work for me.
+
 Getting started
 ===============
 
