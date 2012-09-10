@@ -1,4 +1,5 @@
 import os
+import mimetypes
 import docutils.parsers.rst.directives
 from docutils import core, io, nodes
 from docutils.parsers.rst import roles, directives, languages
@@ -65,6 +66,13 @@ class UploadDirective(DownloadDirective):
         m.load()
         type = m.file(filename.encode('utf-8'))
         m.close()
+        #print filename, type
         return type
 
 directives.register_directive('upload', UploadDirective)
+
+# WordPress uses mimetypes.guess_type to guess the MIME type
+# for a file without looking at it or using file(1) or
+# anything. For ReStructuredText files on my machine, this
+# breaks. Provide it for this one special case.
+mimetypes.add_type('text/plain', '.rst')
