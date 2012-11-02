@@ -378,7 +378,7 @@ class WordPressClient():
 
     def newPage(self, page, publish):
         # FIXME: probably wrong
-        id = int(self._save_page('wp', 'newPage', [], page, publish))
+        id = int(self._save_post('wp', 'newPage', [self.blogId], page, publish))
         page.id = id
         return id
 

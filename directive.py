@@ -3,7 +3,7 @@ import os.path
 import urllib
 import urlparse
 from docutils.parsers.rst import Directive
-from config import POSTS_LOCATION, IMAGES_LOCATION, TEMP_DIRECTORY
+from config import POSTS_LOCATION, IMAGES_LOCATION, TEMP_DIRECTORY, TEMP_FILES
 
 
 class DownloadDirective(Directive):
