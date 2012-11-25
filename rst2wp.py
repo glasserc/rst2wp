@@ -543,8 +543,8 @@ class Rst2Wp(Application):
 
     def run_list_categories(self):
         categories = self.wp.get_categories()
-        for category in tags:
-            print '{name} (id {id})'.format(**tag.__dict__)
+        for category in categories:
+            print '{name} (id {id})'.format(**category.__dict__)
 
 if __name__ == '__main__':
     try:
