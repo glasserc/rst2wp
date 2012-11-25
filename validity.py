@@ -53,7 +53,7 @@ WordPress will break tags at commas. If you really want a tag with a comma, add 
     @classmethod
     def check_existing_category(cls, wp, cat):
         if not wp.has_category(cat):
-            cat = cls.read_category(cat)
+            cat = cls.read_category(wp, cat)
 
     @classmethod
     def read_base(cls, name):
