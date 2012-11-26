@@ -399,7 +399,6 @@ class WordPressClient():
     edit_page = editPage
 
     def _save_post(self, namespace, method_name, args, post, publish):
-        # FIXME: does permaLink do anything here?? Doesn't seem so, but wp_slug might
         blogContent = {
             'title' : post.title,
             'description' : post.description,

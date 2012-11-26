@@ -519,6 +519,11 @@ class Rst2Wp(Application):
 
         self.save_post_info(reader.document, 'title', fields['title'])
 
+        # Print end messange and preview link
+        print
+        print 'Done, url for preview with permaLink:'
+        print post.permaLink + '&preview=true'
+
         # No idea why I even wrote this in the first place.
         # for image_uri in used_images:
         #     self.save_directive_info(reader.document, "image", image_uri,
