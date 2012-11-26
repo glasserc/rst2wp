@@ -181,7 +181,7 @@ class WordPressTag(CategoryBase):
 
     @classmethod
     def from_xmlrpc(cls, tag):
-        return cls(id          = int(tag['tag_id']),
+        return cls(id          = int(tag['term_id']),
                    name        = tag['name'],
                    count       = int(tag['count']),
                    slug        = tag['slug'],
@@ -540,7 +540,11 @@ class WordPressClient():
     def getTags(self):
         if not self.tags:
             self.tags = []
-            tags = self._server.wp.getTags(self.blogId, self.user, self.password)
+            tags = self._server.wp.getTerms(self.blogId,
+                                            self.user,
+                                            self.password,
+                                            'post_tag',
+                                            {'hide_empty': 0})
 
             for t in tags:
                 self.tags.append(WordPressTag.from_xmlrpc(t))
