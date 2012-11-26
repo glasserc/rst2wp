@@ -198,21 +198,11 @@ class WordPressCategory(CategoryBase):
 
     @classmethod
     def from_xmlrpc(cls, cat):
-        # N.B. WP's many APIs are pretty inconsistent with what they
-        # return.
-        #
-        # metaWeblog.getCategories returns all of the below fields.
-        #
-        # mt.getCategoryList returns only the first two, as do
-        # mt.getPostCategories.
-        #
-        # Any getPost call will just return category names -- you'll
-        # have to deal with those somewhere else.
-        return cls(id          = int(cat['categoryId']),
-                   name        = cat['categoryName'],
-                   description = cat.get('categoryDescription'),
-                   #slug       = cat.get('category_nicename'),
-                   parent_id   = cat.get('parentId'),
+        return cls(id          = int(cat['term_id']),
+                   name        = cat['name'],
+                   description = cat['description'],
+                   slug        = cat['slug'],
+                   parent_id   = cat['parent'],
                    html_url    = cat.get('htmlUrl'),
                    rss_url     = cat.get('rssUrl'),
                    )
@@ -526,9 +516,11 @@ class WordPressClient():
         '''Returns more data then getCategoryList, including description'''
         if not self.categories:
             self.categories = []
-            categories = self._server.metaWeblog.getCategories(self.blogId,
-                                                               self.user,
-                                                               self.password)
+            categories = self._server.wp.getTerms(self.blogId,
+                                                  self.user,
+                                                  self.password,
+                                                  'category',
+                                                  {'hide_empty': 0})
             for cat in categories:
                 self.categories.append(self._filterCategory(cat))
 
