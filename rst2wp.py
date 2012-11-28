@@ -146,6 +146,7 @@ class Application(object):
             config.set('config', 'publish_default', 'yes')
             config.set('config', 'save_uploads', 'no')
             config.set('config', 'scale_images', 'no')
+            config.set('config', 'default_category', 'Uncategorized')
 
             path = os.path.join(BaseDirectory.save_config_path('rst2wp'), 'wordpressrc')
             print 'Need configuration! Edit %s'%(path,)
@@ -341,9 +342,14 @@ class Rst2Wp(Application):
         keystring = ':{key}:'.format(key=key)
         new_line = '{keystring} {value}'.format(keystring=keystring, value=value.encode('utf8'))
 
+        # Add field after other fields, or replace if exists
+        in_fields = False
         lines = self.text.split('\n')
         for i in range(len(lines)):
-            if lines[i].strip() == '':
+            if ':' == lines[i][:1]:
+                in_fields = True
+            if not in_fields: continue
+            if '' == lines[i].strip():
                 # Didn't have that field
                 lines.insert(i, new_line)
                 break
@@ -518,6 +524,11 @@ class Rst2Wp(Application):
 
         self.save_post_info(reader.document, 'title', fields['title'])
 
+        # Print end messange and preview link
+        print
+        print 'Done, url for preview with permaLink:'
+        print post.permaLink + '&preview=true'
+
         # No idea why I even wrote this in the first place.
         # for image_uri in used_images:
         #     self.save_directive_info(reader.document, "image", image_uri,
@@ -543,8 +554,8 @@ class Rst2Wp(Application):
 
     def run_list_categories(self):
         categories = self.wp.get_categories()
-        for category in tags:
-            print '{name} (id {id})'.format(**tag.__dict__)
+        for category in categories:
+            print '{name} (id {id})'.format(**category.__dict__)
 
 if __name__ == '__main__':
     try:

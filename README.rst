@@ -9,6 +9,7 @@ Requirements
 
 * python-argparse
 * python-docutils
+* python-magic
 * python-xdg
 
 Features
