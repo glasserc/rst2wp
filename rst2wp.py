@@ -342,9 +342,14 @@ class Rst2Wp(Application):
         keystring = ':{key}:'.format(key=key)
         new_line = '{keystring} {value}'.format(keystring=keystring, value=value.encode('utf8'))
 
+        # Add field after other fields, or replace if exists
+        in_fields = False
         lines = self.text.split('\n')
         for i in range(len(lines)):
-            if lines[i].strip() == '':
+            if ':' == lines[i][:1]:
+                in_fields = True
+            if not in_fields: continue
+            if '' == lines[i].strip():
                 # Didn't have that field
                 lines.insert(i, new_line)
                 break
