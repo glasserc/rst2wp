@@ -181,7 +181,7 @@ class WordPressTag(CategoryBase):
 
     @classmethod
     def from_xmlrpc(cls, tag):
-        return cls(id          = int(tag['tag_id']),
+        return cls(id          = int(tag['term_id']),
                    name        = tag['name'],
                    count       = int(tag['count']),
                    slug        = tag['slug'],
@@ -198,21 +198,11 @@ class WordPressCategory(CategoryBase):
 
     @classmethod
     def from_xmlrpc(cls, cat):
-        # N.B. WP's many APIs are pretty inconsistent with what they
-        # return.
-        #
-        # metaWeblog.getCategories returns all of the below fields.
-        #
-        # mt.getCategoryList returns only the first two, as do
-        # mt.getPostCategories.
-        #
-        # Any getPost call will just return category names -- you'll
-        # have to deal with those somewhere else.
-        return cls(id          = int(cat['categoryId']),
-                   name        = cat['categoryName'],
-                   description = cat.get('categoryDescription'),
-                   #slug       = cat.get('category_nicename'),
-                   parent_id   = cat.get('parentId'),
+        return cls(id          = int(cat['term_id']),
+                   name        = cat['name'],
+                   description = cat['description'],
+                   slug        = cat['slug'],
+                   parent_id   = cat['parent'],
                    html_url    = cat.get('htmlUrl'),
                    rss_url     = cat.get('rssUrl'),
                    )
@@ -409,7 +399,6 @@ class WordPressClient():
     edit_page = editPage
 
     def _save_post(self, namespace, method_name, args, post, publish):
-        # FIXME: does permaLink do anything here?? Doesn't seem so, but wp_slug might
         blogContent = {
             'title' : post.title,
             'description' : post.description,
@@ -526,9 +515,11 @@ class WordPressClient():
         '''Returns more data then getCategoryList, including description'''
         if not self.categories:
             self.categories = []
-            categories = self._server.metaWeblog.getCategories(self.blogId,
-                                                               self.user,
-                                                               self.password)
+            categories = self._server.wp.getTerms(self.blogId,
+                                                  self.user,
+                                                  self.password,
+                                                  'category',
+                                                  {'hide_empty': 0})
             for cat in categories:
                 self.categories.append(self._filterCategory(cat))
 
@@ -540,7 +531,11 @@ class WordPressClient():
     def getTags(self):
         if not self.tags:
             self.tags = []
-            tags = self._server.wp.getTags(self.blogId, self.user, self.password)
+            tags = self._server.wp.getTerms(self.blogId,
+                                            self.user,
+                                            self.password,
+                                            'post_tag',
+                                            {'hide_empty': 0})
 
             for t in tags:
                 self.tags.append(WordPressTag.from_xmlrpc(t))
