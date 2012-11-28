@@ -146,6 +146,7 @@ class Application(object):
             config.set('config', 'save_uploads', 'no')
             config.set('config', 'scale_images', 'no')
             config.set('config', 'default_category', 'Uncategorized')
+            config.set('config', 'tab_width', 4)
 
             path = os.path.join(BaseDirectory.save_config_path('rst2wp'), 'wordpressrc')
             print 'Need configuration! Edit %s'%(path,)
@@ -455,6 +456,7 @@ class Rst2Wp(Application):
                 'used_images': used_images,
                 # FIXME: probably a nicer way to do this
                 'filename': self.filename,
+                'tab_width' : int(self.config.get('config', 'tab_width')),
                 })
         #print yaml.dump(output, default_flow_style=False)
         body = output['body']
