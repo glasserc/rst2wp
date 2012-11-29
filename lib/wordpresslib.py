@@ -411,7 +411,8 @@ class WordPressClient():
         }
 
         if post.date:
-            blogContent['date_created_gmt'] = xmlrpclib.DateTime(post.date)
+            # Convert date to UTC
+            blogContent['date_created_gmt'] = xmlrpclib.DateTime(time.gmtime(time.mktime(post.date)))
             print "Back-converting dateCreated:", post.date, blogContent['date_created_gmt']
 
         # Get remote method: e.g. self._server.metaWeblog.editPost

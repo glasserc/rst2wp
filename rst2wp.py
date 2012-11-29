@@ -6,7 +6,6 @@ See the README for more details.
 '''
 # FIXME: robust against missing configuration keys
 # FIXME: prompt for a good filename/extension for unknown weird files
-# FIXME: could use fields['date'] for publish date
 # FIXME: if xmlrpc breaks, try to provide a useful error message
 # FIXME: .. figure:: directive
 # FIXME: progress meter on uploading images/files
@@ -17,7 +16,7 @@ from xdg import BaseDirectory
 import ConfigParser
 import sys
 import os.path
-import tempfile, subprocess, time
+import tempfile, subprocess, time, datetime
 from docutils import core, io, nodes, utils
 from docutils.readers import standalone
 import docutils.writers.html4css1
@@ -483,6 +482,32 @@ class Rst2Wp(Application):
             'description': body,
             }
 
+        if self.has_post_info(reader.document, 'id'):
+            new_post = False
+            post_id = self.get_post_info(reader.document, 'id')
+            post_id = unicode(post_id)
+            post = wp.get_post(post_id)
+        else:
+            new_post = True
+            post = None
+
+        # Post date
+        # 1. Set bibliogrphic fields :date: in rst file
+        # 2. New post will auto set if no :date: field
+        # 3. Old post will retrieve publish and set
+        # 4. Set :date: can only change in rst file manually
+        # 5. :date: is NOT post last modify time, it's publish time in local dz
+        if not 'date' in fields:
+            if new_post:
+                new_post_data['date'] = time.localtime()
+            else:
+                # Convert post time in UTC to localtime
+                new_post_data['date'] = time.localtime(time.mktime(post.date) - time.timezone)
+            # Write :date: field
+            self.save_post_info(reader.document, 'date', time.strftime("%Y-%m-%d %H:%M:%S", new_post_data['date']))
+        else:
+            new_post_data['date'] = datetime.datetime.strptime(fields['date'], '%Y-%m-%d %H:%M:%S').timetuple()
+
         # Publish priority:
         # 1. --publish/--no-publish
         # 2. :publish: yes
@@ -498,11 +523,7 @@ class Rst2Wp(Application):
             publish = config.getboolean('config', 'publish_default')
         if publish == None: publish = False
 
-        if self.has_post_info(reader.document, 'id'):
-            post_id = self.get_post_info(reader.document, 'id')
-            post_id = unicode(post_id)
-            post = wp.get_post(post_id)
-
+        if not new_post:
             post.__dict__.update(new_post_data)
 
             if fields.get('type') == 'page':
@@ -511,7 +532,6 @@ class Rst2Wp(Application):
                 wp.edit_post(post_id, post, publish)
 
         else:
-            # FIXME: fields['date']
             user = wp.get_user_info()
             new_post_data['user'] = user.id
             post = wordpresslib.WordPressPost(**new_post_data)
