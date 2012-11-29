@@ -147,6 +147,7 @@ class Application(object):
             config.set('config', 'scale_images', 'no')
             config.set('config', 'default_category', 'Uncategorized')
             config.set('config', 'tab_width', 4)
+            config.set('config', 'initial_header_level', 2)
 
             path = os.path.join(BaseDirectory.save_config_path('rst2wp'), 'wordpressrc')
             print 'Need configuration! Edit %s'%(path,)
@@ -457,6 +458,7 @@ class Rst2Wp(Application):
                 # FIXME: probably a nicer way to do this
                 'filename': self.filename,
                 'tab_width' : int(self.config.get('config', 'tab_width')),
+                'initial_header_level' : int(self.config.get('config', 'initial_header_level')),
                 })
         #print yaml.dump(output, default_flow_style=False)
         body = output['body']
