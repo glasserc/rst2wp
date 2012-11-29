@@ -441,7 +441,9 @@ class Rst2Wp(Application):
         if not self.dont_check_tags and not self.preview:
             validity.Validity.verify_categories(wp, categories)
 
+        # Source path is for use include directive in rst file
         output = core.publish_parts(source=text, writer=writer,
+                                    source_path=os.path.abspath(self.filename),
                                     reader=reader,
                                     settings_overrides={
                 'wordpress_instance' : wp,
