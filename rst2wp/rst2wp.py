@@ -583,7 +583,7 @@ class Rst2Wp(Application):
         for category in categories:
             print '{name} (id {id})'.format(**category.__dict__)
 
-if __name__ == '__main__':
+def main():
     try:
         Rst2Wp().run()
     except UsageError, u:
@@ -592,3 +592,6 @@ if __name__ == '__main__':
     finally:
         for filename in TEMP_FILES:
             os.unlink(filename)
+
+if __name__ == '__main__':
+    main()
