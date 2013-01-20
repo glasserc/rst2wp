@@ -30,7 +30,11 @@ Shortcomings
 Getting started
 ===============
 
-Just run the script once to create ~/.config/rst2wp/wordpressrc.
+1. ``git clone https://github.com/glasserc/rst2wp.git``
+2. ``cd rst2wp``
+3. ``python setup.py install``
+
+Then just run ``rst2wp`` once to create ~/.config/rst2wp/wordpressrc.
 Account settings and configuration stuff goes in there.
 
 Usage
