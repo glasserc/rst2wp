@@ -443,6 +443,11 @@ class Rst2Wp(Application):
         if not self.dont_check_tags and not self.preview:
             validity.Validity.verify_categories(wp, categories)
 
+        # FIXME: probably a better way to ensure these are present
+        if not self.config.has_option('config', 'tab_width'):
+            self.config.set('config', 'tab_width', '4')
+            self.config.set('config', 'initial_header_level', '2')
+
         # Source path is for use include directive in rst file
         output = core.publish_parts(source=text, writer=writer,
                                     source_path=os.path.abspath(self.filename),
@@ -457,8 +462,8 @@ class Rst2Wp(Application):
                 'used_images': used_images,
                 # FIXME: probably a nicer way to do this
                 'filename': self.filename,
-                'tab_width' : int(self.config.get('config', 'tab_width')),
-                'initial_header_level' : int(self.config.get('config', 'initial_header_level')),
+                'tab_width' : self.config.getint('config', 'tab_width'),
+                'initial_header_level' : self.config.getint('config', 'initial_header_level'),
                 })
         #print yaml.dump(output, default_flow_style=False)
         body = output['body']
