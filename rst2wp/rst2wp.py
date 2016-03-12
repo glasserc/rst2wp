@@ -157,6 +157,7 @@ class Application(object):
 
         if config.get('account', 'url') == DEFAULT_WORDPRESS_URL:
             # Don't wipe out what they might have configured
+            path = os.path.join(BaseDirectory.save_config_path('rst2wp'), 'wordpressrc')
             print 'Still needs configuration! Edit %s'%(path,)
             sys.exit()
 
