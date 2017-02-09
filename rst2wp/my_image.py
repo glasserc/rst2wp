@@ -8,7 +8,7 @@ from docutils.parsers.rst import roles, directives, languages
 
 import os.path
 
-import Image
+from PIL import Image
 from directive import DownloadDirective
 
 # Arguments starting with form-* are all OK.
