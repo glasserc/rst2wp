@@ -394,7 +394,7 @@ class Rst2Wp(Application):
             print "Arbitrarily picking first blog: %s at %s"%(blog.name, blog.url)
             wp.selectBlog(blog.id)
         else:
-            blog_id = config.get_int('account', 'blog_id')
+            blog_id = config.getint('account', 'blog_id')
             print "Using blog id %s from config" % (blog_id,)
             wp.selectBlog(blog_id)
 
