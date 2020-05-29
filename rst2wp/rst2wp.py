@@ -24,7 +24,7 @@ import docutils.transforms
 #import yaml
 import utils
 
-sys.path.insert(0, os.path.join(os.path.abspath(os.path.dirname(__file__)), "lib"))
+sys.path.insert(0, os.path.join(os.path.abspath(os.path.dirname(__file__)), "rst2wp/lib"))
 
 import wordpresslib
 import my_image # registers MyImageDirective
