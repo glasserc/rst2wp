@@ -625,4 +625,3 @@ class WordPressClient(object):
         result = self._server.metaWeblog.newMediaObject(self.blogId,
                                 self.user, self.password, mediaStruct)
         return result['url']
-
