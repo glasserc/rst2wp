@@ -38,7 +38,7 @@ class TestImage(unittest.TestCase):
     def match_image(self, image, spec):
         for x in spec:
             if image[x] != spec[x]:
-                raise AssertionError, "Image {0} did not match spec {1}".format(image, spec)
+                raise AssertionError("Image {0} did not match spec {1}".format(image, spec))
 
     def mock_run(self, text):
         application = mock.Mock(rst2wp.Rst2Wp)
@@ -205,7 +205,7 @@ class TestImage(unittest.TestCase):
         images[1].size = (4000, 3000)
         images_iter = iter(images)
 
-        image_open.side_effect = lambda filename: images_iter.next()
+        image_open.side_effect = lambda filename: next(images_iter)
 
         output = self.mock_run(text)
         html = output['output']
