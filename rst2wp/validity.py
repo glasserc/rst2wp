@@ -5,7 +5,7 @@ and how to check it based on a document.'''
 from __future__ import print_function
 raw_input = __builtins__['raw_input']
 
-class Validity():
+class Validity(object):
     @classmethod
     def should_check(cls, document):
         # Check if there is a wordpress_instance, and there is either
@@ -59,8 +59,8 @@ WordPress will break tags at commas. If you really want a tag with a comma, add 
     @classmethod
     def read_base(cls, name):
         fmt = {'name': repr(str(name))}
-        slug = raw_input("Slug for {name} [auto-generate]: ".format(**fmt))
-        description = raw_input("Description for {name} [none]: ".format(**fmt))
+        slug = input("Slug for {name} [auto-generate]: ".format(**fmt))
+        description = input("Description for {name} [none]: ".format(**fmt))
         return {'slug': slug, 'description': description, 'name': name}
 
     @classmethod
@@ -73,16 +73,16 @@ If you really want a tag with a comma in the name, create it via the web interfa
 
         print("Post has non-existent tag {tag}. Ctrl-C to cancel.".format(**fmt))
         print("rst2wp can create the tag automatically, but can't set description or slug via XML-RPC API. If you want to edit these things, log in to the blog!")
-        raw_input("Confirm creation? [yes] ")
+        input("Confirm creation? [yes] ")
 
     @classmethod
     def read_category(cls, wp, cat):
         fmt = {'category': repr(str(cat))}
         print("Post has non-existent category {category}. Ctrl-C to cancel.".format(**fmt))
-        raw_input("Confirm? [yes]")
+        input("Confirm? [yes]")
 
         data = cls.read_base(cat)
-        parent_id = raw_input("Parent id for {category} [none]: ".format(**fmt))
+        parent_id = input("Parent id for {category} [none]: ".format(**fmt))
 
         c = wordpresslib.WordPressCategory(parent_id=parent_id, **data)
         wp.new_category(c)

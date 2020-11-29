@@ -15,7 +15,7 @@ from __future__ import absolute_import
 import re
 import argparse
 from xdg import BaseDirectory
-import ConfigParser
+import configparser
 import sys
 import os.path
 import tempfile, subprocess, time, datetime
@@ -128,7 +128,7 @@ class Application(object):
             print('config loaded')
 
     def _load_config(self):
-        config = ConfigParser.SafeConfigParser()
+        config = configparser.ConfigParser()
         self.VERBOSE = False
 
         self._read_configs_into(config)
@@ -172,7 +172,7 @@ class Application(object):
             filename = os.path.join(dir, configfile)
             if not os.path.exists(filename): continue
 
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.ConfigParser()
             with file(filename) as f:
                 config.readfp(f)
             if not config.has_section(section): continue
@@ -186,7 +186,7 @@ class Application(object):
 
 class Rst2Wp(Application):
     def _known_link_stanza(self):
-        known_links = ConfigParser.SafeConfigParser()
+        known_links = configparser.ConfigParser()
         self._read_configs_into(known_links, 'known_links', 'known links')
 
         links = []
@@ -234,7 +234,7 @@ class Rst2Wp(Application):
         if isinstance(self.alt_config, str): self.config_name = self.alt_config
 
     def prompt(self, msg):
-        return raw_input(msg)
+        return input(msg)
 
     def save_post_info(self, document, key, value):
         data_storage = self.data_storage
@@ -262,7 +262,7 @@ class Rst2Wp(Application):
 
     def _save_config_info(self, section, key, value, location=None):
         location = location or POSTS_LOCATION
-        config = ConfigParser.SafeConfigParser()
+        config = configparser.ConfigParser()
         filename = location()
         if os.path.exists(filename):
             with file(filename) as f:
@@ -333,7 +333,7 @@ class Rst2Wp(Application):
         return self._has_config_info(document, directive + ' ' + url, key, location=IMAGES_LOCATION)
 
     def _has_config_info(self, document, section, key, location=POSTS_LOCATION):
-        class NO_DEFAULT:
+        class NO_DEFAULT(object):
             pass
 
         return self.search_configs(location(), section, key, NO_DEFAULT) is not NO_DEFAULT
@@ -490,7 +490,7 @@ class Rst2Wp(Application):
         body = utils.replace_newlines(body)
 
         new_post_data = {
-            'title' : unicode(fields['title']),
+            'title' : str(fields['title']),
             'categories': categories,
             'tags': tags,
             'description': body,
@@ -499,7 +499,7 @@ class Rst2Wp(Application):
         if self.has_post_info(reader.document, 'id'):
             new_post = False
             post_id = self.get_post_info(reader.document, 'id')
-            post_id = unicode(post_id)
+            post_id = str(post_id)
             post = wp.get_post(post_id)
         else:
             new_post = True

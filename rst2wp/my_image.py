@@ -113,7 +113,7 @@ class MyImageDirective(directives.images.Image, DownloadDirective):
 
     def process_parameters(self):
         '''Store all the uploaded forms for this directive with canonical names in document.settings'''
-        for key, value in self.options.items():
+        for key, value in list(self.options.items()):
             if key == 'saved_as': key = 'uploaded'
             if key.startswith('form-'): key = key.replace('form-', 'uploaded-scale')
             if key.startswith('uploaded'):

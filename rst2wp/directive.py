@@ -2,8 +2,8 @@ from __future__ import print_function
 from __future__ import absolute_import
 import os.path
 
-import urllib
-import urlparse
+import urllib.request, urllib.parse, urllib.error
+import urllib.parse
 from docutils.parsers.rst import Directive
 from .config import POSTS_LOCATION, IMAGES_LOCATION, TEMP_DIRECTORY, TEMP_FILES
 
@@ -46,16 +46,16 @@ class DownloadDirective(Directive):
         filename = os.path.join(dir, target_filename)
         if not os.path.exists(filename):
             print("Downloading {0}".format(uri.encode('utf-8')))
-            filename, headers = urllib.urlretrieve(uri.encode('utf-8'), os.path.join(dir, target_filename))
+            filename, headers = urllib.request.urlretrieve(uri.encode('utf-8'), os.path.join(dir, target_filename))
 
         self.cleanup_file(filename)
         return filename
 
     def uri_filename(self, uri):
-        tuple = urlparse.urlparse(uri)
+        tuple = urllib.parse.urlparse(uri)
         path = tuple.path
         target_filename = path.split('/')[-1]
         if '.' not in target_filename:
-            target_filename = raw_input("Image specified by %s doesn't have a filename.\nWhat would you like this image to be named?\n> "%(uri,))
+            target_filename = input("Image specified by %s doesn't have a filename.\nWhat would you like this image to be named?\n> "%(uri,))
 
-        return urllib.unquote(target_filename)
+        return urllib.parse.unquote(target_filename)

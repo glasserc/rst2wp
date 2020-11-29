@@ -57,7 +57,7 @@ __license__ = "LGPL"
 import exceptions
 import re
 import os
-import xmlrpclib
+import xmlrpc.client
 import datetime
 import time
 from functools import wraps
@@ -68,7 +68,7 @@ class WordPressException(exceptions.Exception):
     """Custom exception for WordPress client operations
     """
     def __init__(self, obj):
-        if isinstance(obj, xmlrpclib.Fault):
+        if isinstance(obj, xmlrpc.client.Fault):
             self.id = obj.faultCode
             self.message = obj.faultString
         else:
@@ -99,7 +99,7 @@ class WordPressException(exceptions.Exception):
 #
 # http://www.simmonsconsulting.com/2008/02/29/daylight-saving-time-and-wordpress-xmlrpc/
 
-class WordPressBlog():
+class WordPressBlog(object):
     """Represents blog item
     """
     def __init__(self, id=None, name=None, url=None, isAdmin=None):
@@ -118,7 +118,7 @@ class WordPressBlog():
             )
 
 
-class WordPressUser():
+class WordPressUser(object):
     """Represents user item
     """
     def __init__(self, id=None, firstname=None, lastname=None, nickname=None,
@@ -214,7 +214,7 @@ class WordPressCategory(CategoryBase):
 
         return data
 
-class WordPressPost():
+class WordPressPost(object):
     """Represents post item
     """
     def __init__(self, id=None, title=None, date=None, permaLink=None,
@@ -242,12 +242,12 @@ def wordpress_call(func):
     def call(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except xmlrpclib.Fault as fault:
+        except xmlrpc.client.Fault as fault:
             raise WordPressException(fault)
 
     return call
 
-class WordPressClient():
+class WordPressClient(object):
     """Client for connect to WordPress XML-RPC interface
     """
 
@@ -258,7 +258,7 @@ class WordPressClient():
         self.blogId = 0
         self.categories = None
         self.tags = None
-        self._server = xmlrpclib.ServerProxy(self.url)
+        self._server = xmlrpc.client.ServerProxy(self.url)
 
     def _filterPost(self, post):
         """Transform post struct in WordPressPost instance
@@ -411,7 +411,7 @@ class WordPressClient():
 
         if post.date:
             # Convert date to UTC
-            blogContent['date_created_gmt'] = xmlrpclib.DateTime(time.gmtime(time.mktime(post.date)))
+            blogContent['date_created_gmt'] = xmlrpc.client.DateTime(time.gmtime(time.mktime(post.date)))
             print("Back-converting dateCreated:", post.date, blogContent['date_created_gmt'])
 
         # Get remote method: e.g. self._server.metaWeblog.editPost
@@ -616,7 +616,7 @@ class WordPressClient():
 
         mediaStruct = {
             'name' : os.path.basename(mediaFileName),
-            'bits' : xmlrpclib.Binary(mediaBits)
+            'bits' : xmlrpc.client.Binary(mediaBits)
         }
 
         mediaStruct.update(fields)
