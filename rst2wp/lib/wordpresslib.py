@@ -54,7 +54,6 @@ __author__ = "Michele Ferretti <black.bird@tiscali.it>"
 __copyright__ = "Copyright (c) 2005 Michele Ferretti"
 __license__ = "LGPL"
 
-import exceptions
 import re
 import os
 import xmlrpc.client
@@ -64,7 +63,7 @@ from functools import wraps
 import mimetypes
 import warnings
 
-class WordPressException(exceptions.Exception):
+class WordPressException(Exception):
     """Custom exception for WordPress client operations
     """
     def __init__(self, obj):

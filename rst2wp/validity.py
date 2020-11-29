@@ -3,7 +3,6 @@
 Encapsulates logic for whether to check existence of tags/categories,
 and how to check it based on a document.'''
 from __future__ import print_function
-raw_input = __builtins__['raw_input']
 
 class Validity(object):
     @classmethod
