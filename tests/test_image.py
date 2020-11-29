@@ -54,11 +54,12 @@ class TestImage(unittest.TestCase):
         wp.upload_file.side_effect = lambda filename, overwrite=True: "http://wordpress/"+os.path.basename(filename)
 
         directive_uris = {'image': {}}
-        output = core.publish_parts(source=text, writer_name='html4css1',
-                                    settings_overrides = {'bibliographic_fields': {},
-                                                          'application': application,
-                                                          'directive_uris': directive_uris,
-                                                          'wordpress_instance': wp})
+        with mock.patch('subprocess.check_call') as check_call:
+            output = core.publish_parts(source=text, writer_name='html4css1',
+                                        settings_overrides = {'bibliographic_fields': {},
+                                                              'application': application,
+                                                              'directive_uris': directive_uris,
+                                                              'wordpress_instance': wp})
         return {'output': output['whole'], 'directive_uris': directive_uris,
                 'application': application, 'wordpress_instance': wp}
 
