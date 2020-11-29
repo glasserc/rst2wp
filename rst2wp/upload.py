@@ -1,13 +1,15 @@
+from __future__ import print_function
+from __future__ import absolute_import
 import os
 import mimetypes
 import docutils.parsers.rst.directives
 from docutils import core, io, nodes
 from docutils.parsers.rst import roles, directives, languages
-from config import IMAGES_LOCATION
+from .config import IMAGES_LOCATION
 import magic  # needed to guess file types
-from directive import DownloadDirective
+from .directive import DownloadDirective
 
-import utils
+from . import utils
 
 class UploadDirective(DownloadDirective):
     required_arguments = 1

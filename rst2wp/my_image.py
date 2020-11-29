@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 ## MyImageDirective: a replacement for the Image directive that
 ## insinuates transforms when necessary.
 import subprocess
@@ -9,7 +11,7 @@ from docutils.parsers.rst import roles, directives, languages
 import os.path
 
 from PIL import Image
-from directive import DownloadDirective
+from .directive import DownloadDirective
 
 # Arguments starting with form-* are all OK.
 # Simple dictionary that accepts all those options.
@@ -170,7 +172,7 @@ class MyImageDirective(directives.images.Image, DownloadDirective):
                 factor = float(scale)
                 dimensions = image.size
                 dimensions = int(dimensions[0]*factor), int(dimensions[1]*factor)
-            except ValueError, e:
+            except ValueError as e:
                 dimensions = scale.split('x')
                 dimensions = int(dimensions[0]), int(dimensions[1])
 

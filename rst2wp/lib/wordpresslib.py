@@ -48,6 +48,7 @@
         * http://www.sixapart.com/movabletype/docs/mtmanual_programmatic.html
         * http://docs.python.org/lib/module-xmlrpclib.html
 """
+from __future__ import print_function
 
 __author__ = "Michele Ferretti <black.bird@tiscali.it>"
 __copyright__ = "Copyright (c) 2005 Michele Ferretti"
@@ -241,7 +242,7 @@ def wordpress_call(func):
     def call(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except xmlrpclib.Fault, fault:
+        except xmlrpclib.Fault as fault:
             raise WordPressException(fault)
 
     return call
@@ -269,7 +270,7 @@ class WordPressClient():
         postObj.excerpt         = post['mt_excerpt']
         postObj.user            = post['userid']
         postObj.date            = time.strptime(str(post['date_created_gmt']), "%Y%m%dT%H:%M:%S")
-        print "Parsing date:", postObj.date, post['dateCreated']
+        print("Parsing date:", postObj.date, post['dateCreated'])
         postObj.link            = post['link']
         postObj.textMore        = post['mt_text_more']
         postObj.allowComments   = post['mt_allow_comments'] == 1
@@ -411,7 +412,7 @@ class WordPressClient():
         if post.date:
             # Convert date to UTC
             blogContent['date_created_gmt'] = xmlrpclib.DateTime(time.gmtime(time.mktime(post.date)))
-            print "Back-converting dateCreated:", post.date, blogContent['date_created_gmt']
+            print("Back-converting dateCreated:", post.date, blogContent['date_created_gmt'])
 
         # Get remote method: e.g. self._server.metaWeblog.editPost
         ns = getattr(self._server, namespace)
@@ -424,7 +425,7 @@ class WordPressClient():
     def _marshal_categories_ids(self, categories):
         for c in categories:
             if c.id == -1:
-                raise TypeError, "bad mojo -- categories need IDs"
+                raise TypeError("bad mojo -- categories need IDs")
         return [{'categoryId': cat.id} for cat in categories]
 
     def _marshal_tags_names(self, tags):
