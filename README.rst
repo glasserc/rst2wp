@@ -4,6 +4,23 @@ rst2wp is a Wordpress blogging client. It uses XML-RPC to upload posts.
 
 The basic use case is to enable faster and more automatic blogging than is possible with the HTML/JS interface to Wordpress. To that end, you can use `your favorite editor <http://www.gnu.org/software/emacs/>`_ to write your posts, and then run ``rst2wp post.rst`` to get them online.
 
+NOTE: ``rst2wp`` is not exactly deprecated but something close to
+it. If you are trying to pick a tool to use on your cool new blog
+idea, it would be hard for me to recommend this one. When this program
+was first written (in 2009), Wordpress seemed like a good way to
+publish a blog-like site with features like tags, RSS feeds, and
+search. In that environment, using ``rst2wp`` to facilitate writing
+posts as plain text in a git repository made perfect sense. In 2020,
+the landscape looks a lot different and it's hard to justify tying
+your site to Wordpress as an implementation choice. There's a whole
+category of "static site generators" and any of them will be
+better-maintained than ``rst2wp``, to say nothing of whether your site
+really needs to be running Wordpress on the backend. In particular
+I've heard good things about `Pelican
+<https://blog.getpelican.com/>`_. The rest of the documentation is
+targeted at existing users of ``rst2wp`` who are not motivated to move
+their entire site to something else.
+
 Requirements
 ============
 
