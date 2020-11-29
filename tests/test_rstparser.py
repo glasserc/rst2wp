@@ -1,6 +1,6 @@
-import nodes
-import mock
-import wordpresslib
+from rst2wp import nodes
+from unittest import mock
+from rst2wp.lib import wordpresslib
 try:
     import unittest2 as unittest
 except ImportError:

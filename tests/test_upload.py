@@ -1,5 +1,5 @@
-import upload
-import mock
+from rst2wp import upload
+from unittest import mock
 try:
     import unittest2 as unittest
 except ImportError:

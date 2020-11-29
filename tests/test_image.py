@@ -2,9 +2,9 @@
 import re
 import os
 import xml.etree.cElementTree
-import Image
-import mock
-import wordpresslib
+from PIL import Image
+from unittest import mock
+from rst2wp.lib import wordpresslib
 try:
     import unittest2 as unittest
 except ImportError:
@@ -12,9 +12,9 @@ except ImportError:
 
 from docutils import core
 
-import nodes
-import my_image
-import rst2wp
+from rst2wp import nodes
+from rst2wp import my_image
+from rst2wp import rst2wp
 
 class TestImage(unittest.TestCase):
     def find_images(self, output):
