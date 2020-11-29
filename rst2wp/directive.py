@@ -45,8 +45,8 @@ class DownloadDirective(Directive):
 
         filename = os.path.join(dir, target_filename)
         if not os.path.exists(filename):
-            print("Downloading {0}".format(uri.encode('utf-8')))
-            filename, headers = urllib.request.urlretrieve(uri.encode('utf-8'), os.path.join(dir, target_filename))
+            print("Downloading {0}".format(uri))
+            filename, headers = urllib.request.urlretrieve(uri, os.path.join(dir, target_filename))
 
         self.cleanup_file(filename)
         return filename

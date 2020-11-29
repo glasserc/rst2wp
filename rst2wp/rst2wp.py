@@ -344,7 +344,7 @@ class Rst2Wp(Application):
 
         Replaces an existing field of the same name.'''
         keystring = ':{key}:'.format(key=key)
-        new_line = '{keystring} {value}'.format(keystring=keystring, value=value.encode('utf8'))
+        new_line = '{keystring} {value}'.format(keystring=keystring, value=value)
 
         # Add field after other fields, or replace if exists
         in_fields = False
@@ -370,14 +370,14 @@ class Rst2Wp(Application):
 
     def replace_directive(self, document, directive, uri, key, value):
         '''Add a field to a URL-based directive.'''
-        r = re.compile('{name}::\s+({uri})'.format(name=directive, uri = re.escape(uri.encode('utf-8'))))
+        r = re.compile('{name}::\s+({uri})'.format(name=directive, uri = re.escape(uri)))
         lines = self.text.split('\n')
 
         for i in range(len(lines)):
             if r.search(lines[i]):
                 n = self.get_indent(lines[i])
                 # FIXME: check if it's already there
-                lines.insert(i+1, ((n+3)*' ')+':{key}: {value}'.format(key=key, value=value.encode('utf-8')))
+                lines.insert(i+1, ((n+3)*' ')+':{key}: {value}'.format(key=key, value=value))
 
         self.text = '\n'.join(lines)
 
