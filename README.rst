@@ -28,6 +28,7 @@ Requirements
 * python-magic
 * `python-pyxdg <https://www.freedesktop.org/wiki/Software/pyxdg/>`_ (not to be confused with `xdg <https://pypi.org/project/xdg/>`_)
 * pillow
+* You probably also want ``exiftran`` from `fbida <https://www.kraxel.org/blog/linux/fbida/>`_
 
 Features
 ========
