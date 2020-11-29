@@ -123,7 +123,7 @@ class Application(object):
             filename = os.path.join(dir, filepath)
             if not os.path.exists(filename): continue
             print("loading {0} from".format(config_name), filename)
-            with file(filename) as f:
+            with open(filename) as f:
                 config.readfp(f)
             print('config loaded')
 
@@ -153,7 +153,7 @@ class Application(object):
 
             path = os.path.join(BaseDirectory.save_config_path('rst2wp'), 'wordpressrc')
             print('Need configuration! Edit %s'%(path,))
-            with file(path, 'wb') as fp:
+            with open(path, 'wb') as fp:
                 config.write(fp)
             sys.exit()
 
@@ -173,7 +173,7 @@ class Application(object):
             if not os.path.exists(filename): continue
 
             config = configparser.ConfigParser()
-            with file(filename) as f:
+            with open(filename) as f:
                 config.readfp(f)
             if not config.has_section(section): continue
 
@@ -265,21 +265,21 @@ class Rst2Wp(Application):
         config = configparser.ConfigParser()
         filename = location()
         if os.path.exists(filename):
-            with file(filename) as f:
+            with open(filename) as f:
                 config.readfp(f)
 
         if not config.has_section(section):
             config.add_section(section)
 
         config.set(section, key, value)
-        with file(filename, 'wb') as fp:
+        with open(filename, 'wb') as fp:
             config.write(fp)
 
     def _save_post_updated(self):
         # Save immediately, so as to not forget the location of an uploaded image
         if self.should_save_file():
             print("Saving file with new data")
-            file(self.filename, 'w').write(self.text)
+            open(self.filename, 'w').write(self.text)
 
     def get_post_info(self, document, key):
         '''Get stored information about a post.
@@ -384,7 +384,7 @@ class Rst2Wp(Application):
     def should_save_file(self):
         data_storage = self.config.get('config', 'data_storage')
         save_to_file = data_storage in ['both', 'file']
-        return self.text != file(self.filename).read() and save_to_file
+        return self.text != open(self.filename).read() and save_to_file
 
     def create_client(self, url, username, password):
         wp = wordpresslib.WordPressClient(url, username, password)
@@ -428,7 +428,7 @@ class Rst2Wp(Application):
             elif self.list_categories:
                 return self.run_list_categories()
 
-        with file(self.filename) as f:
+        with open(self.filename) as f:
             self.text = text = f.read()
 
         # self.text is the version we eventually save;

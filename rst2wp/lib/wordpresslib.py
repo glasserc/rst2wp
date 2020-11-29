@@ -609,7 +609,7 @@ class WordPressClient(object):
 
     @wordpress_call
     def __upload_file(self, mediaFileName, **fields):
-        f = file(mediaFileName, 'rb')
+        f = open(mediaFileName, 'rb')
         mediaBits = f.read()
         f.close()
 
