@@ -24,10 +24,10 @@ their entire site to something else.
 Requirements
 ============
 
-* python-argparse
 * python-docutils
 * python-magic
-* python-xdg
+* `python-pyxdg <https://www.freedesktop.org/wiki/Software/pyxdg/>`_ (not to be confused with `xdg <https://pypi.org/project/xdg/>`_)
+* pillow
 
 Features
 ========
