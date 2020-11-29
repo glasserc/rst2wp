@@ -31,7 +31,7 @@ This is a test."""
         self.assertEqual(fields['tags'], ['tag1', 'tag2'])
         self.assertEqual(fields['categories'], ['default_category'])
 
-    @mock.patch('validity.raw_input')
+    @mock.patch('rst2wp.validity.input')
     def test_validity(self, raw_input):
         text = '''
 :tags: - tag1
@@ -53,7 +53,7 @@ This is a test.'''
         wordpress_instance.has_tag.asssert_called_with("tag2")
         assert raw_input.called
 
-    @mock.patch('validity.raw_input')
+    @mock.patch('rst2wp.validity.input')
     def test_validity_existing(self, raw_input):
         text = '''
 :tags: - tag1
