@@ -1,1 +1,0 @@
-rst2wp/rst2wp.py

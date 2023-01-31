@@ -1,13 +1,15 @@
+from __future__ import print_function
+from __future__ import absolute_import
 import os
 import mimetypes
 import docutils.parsers.rst.directives
 from docutils import core, io, nodes
 from docutils.parsers.rst import roles, directives, languages
-from config import IMAGES_LOCATION
+from .config import IMAGES_LOCATION
 import magic  # needed to guess file types
-from directive import DownloadDirective
+from .directive import DownloadDirective
 
-import utils
+from . import utils
 
 class UploadDirective(DownloadDirective):
     required_arguments = 1
@@ -54,7 +56,7 @@ class UploadDirective(DownloadDirective):
 
     def upload_file(self, filename):
         if not self.state_machine.document.settings.wordpress_instance: return filename
-        print("Uploading {0}".format(filename.encode('utf-8')))
+        print("Uploading {0}".format(filename))
         self.wp = self.state_machine.document.settings.wordpress_instance
         return self.wp.upload_file(filename)
 
@@ -64,7 +66,7 @@ class UploadDirective(DownloadDirective):
     def guess_type(self, filename):
         m = magic.open(magic.MAGIC_NONE)
         m.load()
-        type = m.file(filename.encode('utf-8'))
+        type = m.file(filename)
         m.close()
         #print filename, type
         return type

@@ -4,6 +4,8 @@
 
 See the README for more details.
 '''
+from __future__ import print_function
+from __future__ import absolute_import
 # FIXME: robust against missing configuration keys
 # FIXME: prompt for a good filename/extension for unknown weird files
 # FIXME: if xmlrpc breaks, try to provide a useful error message
@@ -13,7 +15,7 @@ See the README for more details.
 import re
 import argparse
 from xdg import BaseDirectory
-import ConfigParser
+import configparser
 import sys
 import os.path
 import tempfile, subprocess, time, datetime
@@ -22,16 +24,16 @@ from docutils.readers import standalone
 import docutils.writers.html4css1
 import docutils.transforms
 #import yaml
-import utils
+from . import utils
 
-sys.path.insert(0, os.path.join(os.path.abspath(os.path.dirname(__file__)), "rst2wp/lib"))
+sys.path.insert(0, os.path.join(os.path.abspath(os.path.dirname(__file__)), "lib"))
 
 import wordpresslib
-import my_image # registers MyImageDirective
-import upload   # registers UploadDirective
-import nodes    # monkeypatches nodes.field_list
-import validity
-from config import IMAGES_LOCATION, POSTS_LOCATION, TEMP_FILES
+from . import my_image # registers MyImageDirective
+from . import upload   # registers UploadDirective
+from . import nodes    # monkeypatches nodes.field_list
+from . import validity
+from .config import IMAGES_LOCATION, POSTS_LOCATION, TEMP_FILES
 
 
 class UsageError(Exception):
@@ -66,7 +68,7 @@ class ValidityCheckerTransform(docutils.transforms.Transform):
 
         def _no_field(msg, msg2=''):
             if msg2: msg = msg+msg2
-            raise TypeError, msg
+            raise TypeError(msg)
 
         if 'title' not in fields:
             _no_field("title missing", """
@@ -120,13 +122,13 @@ class Application(object):
         for dir in BaseDirectory.load_config_paths(self.config_name):
             filename = os.path.join(dir, filepath)
             if not os.path.exists(filename): continue
-            print "loading {0} from".format(config_name), filename
-            with file(filename) as f:
+            print("loading {0} from".format(config_name), filename)
+            with open(filename) as f:
                 config.readfp(f)
-            print 'config loaded'
+            print('config loaded')
 
     def _load_config(self):
-        config = ConfigParser.SafeConfigParser()
+        config = configparser.ConfigParser()
         self.VERBOSE = False
 
         self._read_configs_into(config)
@@ -150,15 +152,15 @@ class Application(object):
             config.set('config', 'initial_header_level', '2')
 
             path = os.path.join(BaseDirectory.save_config_path('rst2wp'), 'wordpressrc')
-            print 'Need configuration! Edit %s'%(path,)
-            with file(path, 'wb') as fp:
+            print('Need configuration! Edit %s'%(path,))
+            with open(path, 'wb') as fp:
                 config.write(fp)
             sys.exit()
 
         if config.get('account', 'url') == DEFAULT_WORDPRESS_URL:
             # Don't wipe out what they might have configured
             path = os.path.join(BaseDirectory.save_config_path('rst2wp'), 'wordpressrc')
-            print 'Still needs configuration! Edit %s'%(path,)
+            print('Still needs configuration! Edit %s'%(path,))
             sys.exit()
 
         self._config = config
@@ -170,8 +172,8 @@ class Application(object):
             filename = os.path.join(dir, configfile)
             if not os.path.exists(filename): continue
 
-            config = ConfigParser.SafeConfigParser()
-            with file(filename) as f:
+            config = configparser.ConfigParser()
+            with open(filename) as f:
                 config.readfp(f)
             if not config.has_section(section): continue
 
@@ -184,7 +186,7 @@ class Application(object):
 
 class Rst2Wp(Application):
     def _known_link_stanza(self):
-        known_links = ConfigParser.SafeConfigParser()
+        known_links = configparser.ConfigParser()
         self._read_configs_into(known_links, 'known_links', 'known links')
 
         links = []
@@ -232,7 +234,7 @@ class Rst2Wp(Application):
         if isinstance(self.alt_config, str): self.config_name = self.alt_config
 
     def prompt(self, msg):
-        return raw_input(msg)
+        return input(msg)
 
     def save_post_info(self, document, key, value):
         data_storage = self.data_storage
@@ -260,24 +262,24 @@ class Rst2Wp(Application):
 
     def _save_config_info(self, section, key, value, location=None):
         location = location or POSTS_LOCATION
-        config = ConfigParser.SafeConfigParser()
+        config = configparser.ConfigParser()
         filename = location()
         if os.path.exists(filename):
-            with file(filename) as f:
+            with open(filename) as f:
                 config.readfp(f)
 
         if not config.has_section(section):
             config.add_section(section)
 
         config.set(section, key, value)
-        with file(filename, 'wb') as fp:
+        with open(filename, 'wb') as fp:
             config.write(fp)
 
     def _save_post_updated(self):
         # Save immediately, so as to not forget the location of an uploaded image
         if self.should_save_file():
-            print "Saving file with new data"
-            file(self.filename, 'w').write(self.text)
+            print("Saving file with new data")
+            open(self.filename, 'w').write(self.text)
 
     def get_post_info(self, document, key):
         '''Get stored information about a post.
@@ -309,7 +311,7 @@ class Rst2Wp(Application):
             except KeyError:
                 pass
             if self.data_storage == 'file':
-                raise ValueError, "uh oh.. don't know what the image URI should be for {uri}".format(uri=url)
+                raise ValueError("uh oh.. don't know what the image URI should be for {uri}".format(uri=url))
 
         section = directive + ' ' + url
         return self.search_configs(location(), section, key)
@@ -331,7 +333,7 @@ class Rst2Wp(Application):
         return self._has_config_info(document, directive + ' ' + url, key, location=IMAGES_LOCATION)
 
     def _has_config_info(self, document, section, key, location=POSTS_LOCATION):
-        class NO_DEFAULT:
+        class NO_DEFAULT(object):
             pass
 
         return self.search_configs(location(), section, key, NO_DEFAULT) is not NO_DEFAULT
@@ -342,7 +344,7 @@ class Rst2Wp(Application):
 
         Replaces an existing field of the same name.'''
         keystring = ':{key}:'.format(key=key)
-        new_line = '{keystring} {value}'.format(keystring=keystring, value=value.encode('utf8'))
+        new_line = '{keystring} {value}'.format(keystring=keystring, value=value)
 
         # Add field after other fields, or replace if exists
         in_fields = False
@@ -368,21 +370,21 @@ class Rst2Wp(Application):
 
     def replace_directive(self, document, directive, uri, key, value):
         '''Add a field to a URL-based directive.'''
-        r = re.compile('{name}::\s+({uri})'.format(name=directive, uri = re.escape(uri.encode('utf-8'))))
+        r = re.compile('{name}::\s+({uri})'.format(name=directive, uri = re.escape(uri)))
         lines = self.text.split('\n')
 
         for i in range(len(lines)):
             if r.search(lines[i]):
                 n = self.get_indent(lines[i])
                 # FIXME: check if it's already there
-                lines.insert(i+1, ((n+3)*' ')+':{key}: {value}'.format(key=key, value=value.encode('utf-8')))
+                lines.insert(i+1, ((n+3)*' ')+':{key}: {value}'.format(key=key, value=value))
 
         self.text = '\n'.join(lines)
 
     def should_save_file(self):
         data_storage = self.config.get('config', 'data_storage')
         save_to_file = data_storage in ['both', 'file']
-        return self.text != file(self.filename).read() and save_to_file
+        return self.text != open(self.filename).read() and save_to_file
 
     def create_client(self, url, username, password):
         wp = wordpresslib.WordPressClient(url, username, password)
@@ -391,11 +393,11 @@ class Rst2Wp(Application):
         if not config.has_option('account', 'blog_id') or config.get('account', 'blog_id') == '':
             blogs = list(wp.get_users_blogs())
             blog = blogs[0]
-            print "Arbitrarily picking first blog: %s at %s"%(blog.name, blog.url)
+            print("Arbitrarily picking first blog: %s at %s"%(blog.name, blog.url))
             wp.selectBlog(blog.id)
         else:
             blog_id = config.getint('account', 'blog_id')
-            print "Using blog id %s from config" % (blog_id,)
+            print("Using blog id %s from config" % (blog_id,))
             wp.selectBlog(blog_id)
 
         return wp
@@ -411,14 +413,14 @@ class Rst2Wp(Application):
         if config.has_option('account', 'verbose'):
             self.VERBOSE = config.get('account', 'verbose')
 
-        print "Connecting to WP server at", url
+        print("Connecting to WP server at", url)
         wp = None
         if not self.preview:
             self.wp = wp = self.create_client(url, username, password)
 
         if self.VERBOSE:
             options = wp.get_options()
-            print "Talking to %s version %s"%(options['software_name'], options['software_version'])
+            print("Talking to %s version %s"%(options['software_name'], options['software_version']))
 
         if not self.preview:
             if self.list_tags:
@@ -426,7 +428,7 @@ class Rst2Wp(Application):
             elif self.list_categories:
                 return self.run_list_categories()
 
-        with file(self.filename) as f:
+        with open(self.filename) as f:
             self.text = text = f.read()
 
         # self.text is the version we eventually save;
@@ -488,7 +490,7 @@ class Rst2Wp(Application):
         body = utils.replace_newlines(body)
 
         new_post_data = {
-            'title' : unicode(fields['title']),
+            'title' : str(fields['title']),
             'categories': categories,
             'tags': tags,
             'description': body,
@@ -497,7 +499,7 @@ class Rst2Wp(Application):
         if self.has_post_info(reader.document, 'id'):
             new_post = False
             post_id = self.get_post_info(reader.document, 'id')
-            post_id = unicode(post_id)
+            post_id = str(post_id)
             post = wp.get_post(post_id)
         else:
             new_post = True
@@ -557,9 +559,9 @@ class Rst2Wp(Application):
         self.save_post_info(reader.document, 'title', fields['title'])
 
         # Print end messange and preview link
-        print
-        print 'Done, url for preview with permaLink:'
-        print post.permaLink + '&preview=true'
+        print()
+        print('Done, url for preview with permaLink:')
+        print(post.permaLink + '&preview=true')
 
         # No idea why I even wrote this in the first place.
         # for image_uri in used_images:
@@ -582,18 +584,18 @@ class Rst2Wp(Application):
     def run_list_tags(self):
         tags = self.wp.get_tags()
         for tag in tags:
-            print '{name} (id {id}): {count} posts'.format(**tag.__dict__)
+            print('{name} (id {id}): {count} posts'.format(**tag.__dict__))
 
     def run_list_categories(self):
         categories = self.wp.get_categories()
         for category in categories:
-            print '{name} (id {id})'.format(**category.__dict__)
+            print('{name} (id {id})'.format(**category.__dict__))
 
 def main():
     try:
         Rst2Wp().run()
-    except UsageError, u:
-        print u.error_message()
+    except UsageError as u:
+        print(u.error_message())
         sys.exit(1)
     finally:
         for filename in TEMP_FILES:

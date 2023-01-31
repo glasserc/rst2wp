@@ -1,8 +1,9 @@
+from __future__ import absolute_import
 #Strategy here: monkeypatch some docutils node classes, specifically
 #field_list and field, so that we can
 
 import docutils.nodes
-import utils, validity
+from . import utils, validity
 
 old_field_list = docutils.nodes.field_list
 
@@ -47,8 +48,8 @@ class rst2wp_field_list(old_field_list):
         elif isinstance(data, docutils.nodes.paragraph):
             value = data.children[0].astext()
         else:
-            raise TypeError, "don't know how to handle a %s in the header %s"%(
-                data.__class__, key)
+            raise TypeError("don't know how to handle a %s in the header %s"%(
+                data.__class__, key))
 
         return key, value
 

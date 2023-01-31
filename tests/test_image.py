@@ -2,9 +2,9 @@
 import re
 import os
 import xml.etree.cElementTree
-import Image
-import mock
-import wordpresslib
+from PIL import Image
+from unittest import mock
+from rst2wp.lib import wordpresslib
 try:
     import unittest2 as unittest
 except ImportError:
@@ -12,9 +12,9 @@ except ImportError:
 
 from docutils import core
 
-import nodes
-import my_image
-import rst2wp
+from rst2wp import nodes
+from rst2wp import my_image
+from rst2wp import rst2wp
 
 class TestImage(unittest.TestCase):
     def find_images(self, output):
@@ -38,7 +38,7 @@ class TestImage(unittest.TestCase):
     def match_image(self, image, spec):
         for x in spec:
             if image[x] != spec[x]:
-                raise AssertionError, "Image {0} did not match spec {1}".format(image, spec)
+                raise AssertionError("Image {0} did not match spec {1}".format(image, spec))
 
     def mock_run(self, text):
         application = mock.Mock(rst2wp.Rst2Wp)
@@ -54,11 +54,12 @@ class TestImage(unittest.TestCase):
         wp.upload_file.side_effect = lambda filename, overwrite=True: "http://wordpress/"+os.path.basename(filename)
 
         directive_uris = {'image': {}}
-        output = core.publish_parts(source=text, writer_name='html4css1',
-                                    settings_overrides = {'bibliographic_fields': {},
-                                                          'application': application,
-                                                          'directive_uris': directive_uris,
-                                                          'wordpress_instance': wp})
+        with mock.patch('subprocess.check_call') as check_call:
+            output = core.publish_parts(source=text, writer_name='html4css1',
+                                        settings_overrides = {'bibliographic_fields': {},
+                                                              'application': application,
+                                                              'directive_uris': directive_uris,
+                                                              'wordpress_instance': wp})
         return {'output': output['whole'], 'directive_uris': directive_uris,
                 'application': application, 'wordpress_instance': wp}
 
@@ -151,8 +152,8 @@ class TestImage(unittest.TestCase):
         self.match_image(images[0], {'reference': 'http://foo-90/on/you', 'src': 'http://foo-rot90-scale0.25/on/you'})
 
 
-    @mock.patch('Image.open')
-    @mock.patch('urllib.urlretrieve')
+    @mock.patch('PIL.Image.open')
+    @mock.patch('urllib.request.urlretrieve')
     @mock.patch('os.mkdir')
     @mock.patch('os.path.exists')
     def test_rotate(self, os_path_exists, os_mkdir, urlretrieve, image_open):
@@ -185,8 +186,8 @@ class TestImage(unittest.TestCase):
         self.assertEqual(len(images), 1)
         self.match_image(images[0], {'reference': None, 'src': 'http://wordpress/foo-rot90.jpg'})
 
-    @mock.patch('Image.open')
-    @mock.patch('urllib.urlretrieve')
+    @mock.patch('PIL.Image.open')
+    @mock.patch('urllib.request.urlretrieve')
     @mock.patch('os.mkdir')
     @mock.patch('os.path.exists')
     def test_rotate_and_scale(self, os_path_exists, os_mkdir, urlretrieve, image_open):
@@ -205,7 +206,7 @@ class TestImage(unittest.TestCase):
         images[1].size = (4000, 3000)
         images_iter = iter(images)
 
-        image_open.side_effect = lambda filename: images_iter.next()
+        image_open.side_effect = lambda filename: next(images_iter)
 
         output = self.mock_run(text)
         html = output['output']

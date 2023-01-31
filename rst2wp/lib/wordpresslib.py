@@ -48,26 +48,26 @@
         * http://www.sixapart.com/movabletype/docs/mtmanual_programmatic.html
         * http://docs.python.org/lib/module-xmlrpclib.html
 """
+from __future__ import print_function
 
 __author__ = "Michele Ferretti <black.bird@tiscali.it>"
 __copyright__ = "Copyright (c) 2005 Michele Ferretti"
 __license__ = "LGPL"
 
-import exceptions
 import re
 import os
-import xmlrpclib
+import xmlrpc.client
 import datetime
 import time
 from functools import wraps
 import mimetypes
 import warnings
 
-class WordPressException(exceptions.Exception):
+class WordPressException(Exception):
     """Custom exception for WordPress client operations
     """
     def __init__(self, obj):
-        if isinstance(obj, xmlrpclib.Fault):
+        if isinstance(obj, xmlrpc.client.Fault):
             self.id = obj.faultCode
             self.message = obj.faultString
         else:
@@ -98,7 +98,7 @@ class WordPressException(exceptions.Exception):
 #
 # http://www.simmonsconsulting.com/2008/02/29/daylight-saving-time-and-wordpress-xmlrpc/
 
-class WordPressBlog():
+class WordPressBlog(object):
     """Represents blog item
     """
     def __init__(self, id=None, name=None, url=None, isAdmin=None):
@@ -117,7 +117,7 @@ class WordPressBlog():
             )
 
 
-class WordPressUser():
+class WordPressUser(object):
     """Represents user item
     """
     def __init__(self, id=None, firstname=None, lastname=None, nickname=None,
@@ -213,7 +213,7 @@ class WordPressCategory(CategoryBase):
 
         return data
 
-class WordPressPost():
+class WordPressPost(object):
     """Represents post item
     """
     def __init__(self, id=None, title=None, date=None, permaLink=None,
@@ -241,12 +241,12 @@ def wordpress_call(func):
     def call(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except xmlrpclib.Fault, fault:
+        except xmlrpc.client.Fault as fault:
             raise WordPressException(fault)
 
     return call
 
-class WordPressClient():
+class WordPressClient(object):
     """Client for connect to WordPress XML-RPC interface
     """
 
@@ -257,7 +257,7 @@ class WordPressClient():
         self.blogId = 0
         self.categories = None
         self.tags = None
-        self._server = xmlrpclib.ServerProxy(self.url)
+        self._server = xmlrpc.client.ServerProxy(self.url)
 
     def _filterPost(self, post):
         """Transform post struct in WordPressPost instance
@@ -269,7 +269,7 @@ class WordPressClient():
         postObj.excerpt         = post['mt_excerpt']
         postObj.user            = post['userid']
         postObj.date            = time.strptime(str(post['date_created_gmt']), "%Y%m%dT%H:%M:%S")
-        print "Parsing date:", postObj.date, post['dateCreated']
+        print("Parsing date:", postObj.date, post['dateCreated'])
         postObj.link            = post['link']
         postObj.textMore        = post['mt_text_more']
         postObj.allowComments   = post['mt_allow_comments'] == 1
@@ -410,8 +410,8 @@ class WordPressClient():
 
         if post.date:
             # Convert date to UTC
-            blogContent['date_created_gmt'] = xmlrpclib.DateTime(time.gmtime(time.mktime(post.date)))
-            print "Back-converting dateCreated:", post.date, blogContent['date_created_gmt']
+            blogContent['date_created_gmt'] = xmlrpc.client.DateTime(time.gmtime(time.mktime(post.date)))
+            print("Back-converting dateCreated:", post.date, blogContent['date_created_gmt'])
 
         # Get remote method: e.g. self._server.metaWeblog.editPost
         ns = getattr(self._server, namespace)
@@ -424,7 +424,7 @@ class WordPressClient():
     def _marshal_categories_ids(self, categories):
         for c in categories:
             if c.id == -1:
-                raise TypeError, "bad mojo -- categories need IDs"
+                raise TypeError("bad mojo -- categories need IDs")
         return [{'categoryId': cat.id} for cat in categories]
 
     def _marshal_tags_names(self, tags):
@@ -609,13 +609,13 @@ class WordPressClient():
 
     @wordpress_call
     def __upload_file(self, mediaFileName, **fields):
-        f = file(mediaFileName, 'rb')
+        f = open(mediaFileName, 'rb')
         mediaBits = f.read()
         f.close()
 
         mediaStruct = {
             'name' : os.path.basename(mediaFileName),
-            'bits' : xmlrpclib.Binary(mediaBits)
+            'bits' : xmlrpc.client.Binary(mediaBits)
         }
 
         mediaStruct.update(fields)
@@ -625,4 +625,3 @@ class WordPressClient():
         result = self._server.metaWeblog.newMediaObject(self.blogId,
                                 self.user, self.password, mediaStruct)
         return result['url']
-
